@@ -1,0 +1,34 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (uncomment if you want to exclude dist from git)
+# dist/
+
+# Environment variables - IMPORTANT: contains API keys!
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific - sensitive files
+api_keys.txt
+
+# Generated config (user should run init to create)
+models.yaml
