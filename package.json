@@ -26,12 +26,16 @@
     "qwen",
     "kimi"
   ],
-  "author": "",
+  "author": "luwill",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/luwill/Claude-Code-Model-Router.git"
   },
+  "bugs": {
+    "url": "https://github.com/luwill/Claude-Code-Model-Router/issues"
+  },
+  "homepage": "https://github.com/luwill/Claude-Code-Model-Router#readme",
   "engines": {
     "node": ">=18.0.0"
   },
