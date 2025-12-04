@@ -255,18 +255,22 @@ export class ModelRouter {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let eventCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
 
         // Process complete SSE events
         while (buffer.includes('\n\n')) {
-          const [event, rest] = buffer.split('\n\n', 2);
-          buffer = rest;
+          const idx = buffer.indexOf('\n\n');
+          const event = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
           if (event.trim()) {
+            eventCount++;
             yield event + '\n\n';
           }
         }
@@ -274,8 +278,11 @@ export class ModelRouter {
 
       // Don't forget remaining data
       if (buffer.trim()) {
+        eventCount++;
         yield buffer + '\n\n';
       }
+
+      console.log(`[${route.name}] Yielded ${eventCount} events`);
 
       if (this.configManager.getConfig().gateway.enable_logging) {
         console.log(`[${route.name}] Stream completed`);

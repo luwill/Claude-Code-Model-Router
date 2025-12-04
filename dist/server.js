@@ -72,10 +72,16 @@ function createServer(configManager) {
                 res.setHeader('Content-Type', 'text/event-stream');
                 res.setHeader('Cache-Control', 'no-cache');
                 res.setHeader('Connection', 'keep-alive');
+                res.setHeader('X-Accel-Buffering', 'no');
                 res.setHeader('X-Model-Router', body.model);
+                res.flushHeaders();
                 // Stream the response
                 for await (const chunk of router.forwardStream(body, originalHeaders)) {
                     res.write(chunk);
+                    // Flush immediately for real-time streaming
+                    if (typeof res.flush === 'function') {
+                        res.flush();
+                    }
                 }
                 res.end();
             }
