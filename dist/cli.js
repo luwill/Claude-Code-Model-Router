@@ -76,18 +76,12 @@ commander_1.program
     console.log('Next steps:');
     console.log('  1. Edit .env and add your API keys');
     console.log('  2. Run: npx claude-code-model-router start');
-    console.log('  3. In a new terminal, set environment and start Claude Code:');
+    console.log('  3. In a new terminal, start Claude Code:');
     console.log('');
-    console.log('     # Linux/macOS:');
-    console.log('     export ANTHROPIC_BASE_URL=http://localhost:8080');
-    console.log('     claude');
+    console.log('     # For third-party models (gateway mode):');
+    console.log('     npx claude-code-model-router claude');
     console.log('');
-    console.log('     # Windows (CMD):');
-    console.log('     set ANTHROPIC_BASE_URL=http://localhost:8080');
-    console.log('     claude');
-    console.log('');
-    console.log('     # Windows (PowerShell):');
-    console.log('     $env:ANTHROPIC_BASE_URL="http://localhost:8080"');
+    console.log('     # For official subscription (default mode):');
     console.log('     claude');
     console.log('');
 });
@@ -122,19 +116,32 @@ commander_1.program
         process.exit(1);
     }
 });
-// Claude command - launches Claude Code with the right environment
+// Claude command - launches Claude Code connected to the gateway
 commander_1.program
     .command('claude')
-    .description('Launch Claude Code connected to the local gateway')
+    .description('Launch Claude Code connected to the gateway (for third-party models)')
     .option('-p, --port <port>', 'Gateway port', '8080')
     .action(async (options) => {
     const { spawn } = await import('node:child_process');
+    const os = await import('node:os');
+    const homeDir = os.homedir();
+    // Set up environment for gateway
     const env = {
         ...process.env,
+        CLAUDE_CONFIG_DIR: node_path_1.default.join(homeDir, '.claude-gateway'),
         ANTHROPIC_BASE_URL: `http://localhost:${options.port}`,
     };
     console.log('');
-    console.log('Launching Claude Code with ANTHROPIC_BASE_URL=http://localhost:' + options.port);
+    console.log('========================================');
+    console.log('Starting Claude Code (Third-party Models)');
+    console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
+    console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
+    console.log('========================================');
+    console.log('');
+    console.log('NOTE: Make sure the gateway is running first!');
+    console.log('Run: npx claude-code-model-router start');
+    console.log('');
+    console.log('TIP: For official Claude subscription, just use: claude');
     console.log('');
     const child = spawn('claude', [], {
         stdio: 'inherit',

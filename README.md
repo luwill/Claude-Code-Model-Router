@@ -18,14 +18,11 @@ npx claude-code-model-router init
 npx claude-code-model-router start
 
 # 4. 新开终端，启动 Claude Code
-# Linux/macOS:
-export ANTHROPIC_BASE_URL=http://localhost:8080 && claude
+# 第三方模型（网关模式）：
+npx claude-code-model-router claude
 
-# Windows CMD:
-set ANTHROPIC_BASE_URL=http://localhost:8080 && claude
-
-# Windows PowerShell:
-$env:ANTHROPIC_BASE_URL="http://localhost:8080"; claude
+# 官方订阅（默认模式）：
+claude
 ```
 
 ### 方式二：全局安装
@@ -36,7 +33,10 @@ npm install -g claude-code-model-router
 # 然后使用 ccmr 命令
 ccmr init
 ccmr start
-ccmr claude  # 自动配置环境变量并启动 Claude Code
+
+# 启动 Claude Code
+ccmr claude    # 第三方模型（网关模式）
+claude         # 官方订阅（默认模式）
 ```
 
 ## 命令说明
@@ -52,8 +52,12 @@ npx claude-code-model-router start --port 9000  # 指定端口
 # 查看可用模型
 npx claude-code-model-router models
 
-# 启动连接网关的 Claude Code
+# 启动 Claude Code（网关模式，使用第三方模型）
 npx claude-code-model-router claude
+npx claude-code-model-router claude --port 9000  # 自定义端口
+
+# 启动 Claude Code（官方订阅）
+claude
 ```
 
 ## 支持的模型
@@ -84,33 +88,83 @@ GLM_API_KEY=xxx            # https://open.bigmodel.cn/
 
 ## 使用场景
 
-### 双终端模式
+### 双模式使用（配置完全隔离）
+
+本工具通过独立的配置目录实现完全隔离，让你可以同时使用官方订阅和第三方模型：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  终端 A: Claude 官方模型（订阅额度）                              │
-│  > claude                                                       │
-│  > /model opus                                                  │
+│  模式1: 官方订阅（默认）                                          │
+│  命令: claude                                                    │
+│  配置: ~/.claude/settings.json                                  │
+│  用途: 使用 Claude 官方模型（订阅额度）                           │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  终端 B: 第三方模型（API 付费）                                   │
-│  > export ANTHROPIC_BASE_URL=http://localhost:8080              │
-│  > claude                                                       │
-│  > /model deepseek                                              │
+│  模式2: 第三方模型（网关）                                        │
+│  命令: npx claude-code-model-router claude                      │
+│  配置: ~/.claude-gateway/settings.json                          │
+│  用途: 使用第三方 AI 模型（DeepSeek, GLM, Qwen 等）              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **终端 A**：直接运行 `claude`，使用订阅额度
-- **终端 B**：设置环境变量后运行，使用第三方模型
+#### 为什么配置是隔离的？
+
+- **官方模式**使用 `~/.claude/` 配置目录（Claude Code 默认）
+- **网关模式**使用 `~/.claude-gateway/` 配置目录（独立隔离）
+- 两个配置目录完全独立，互不干扰
+- 在网关模式切换模型不会影响官方模式
+
+#### 使用步骤
+
+**第一步：启动网关**
+```bash
+npx claude-code-model-router start
+```
+
+**第二步：选择使用模式**
+
+**使用官方订阅（终端 A）：**
+```bash
+claude
+```
+- 使用官方 Claude 模型（Sonnet, Opus, Haiku）
+- 消耗订阅额度
+- 配置存储在 `~/.claude/`
+
+**使用第三方模型（终端 B）：**
+```bash
+npx claude-code-model-router claude
+```
+- 使用第三方 AI 模型（DeepSeek, GLM, Qwen 等）
+- 按 API 使用量付费
+- 配置存储在 `~/.claude-gateway/`
+
+#### 跨平台支持
+
+所有命令在 Windows、macOS、Linux 上完全相同，无需修改。
 
 ### 在 Claude Code 中切换模型
 
+#### 官方模式（直接 `claude` 启动）
+
 ```
-/model deepseek   # 切换到 DeepSeek
-/model qwen       # 切换到 Qwen
-/model kimi       # 切换到 Kimi
+/model sonnet     # Claude Sonnet 4.5
+/model opus       # Claude Opus 4.5
+/model haiku      # Claude Haiku 3.5
 ```
+
+#### 网关模式（`npx ... claude` 启动）
+
+```
+/model deepseek   # 切换到 DeepSeek V3.2
+/model qwen       # 切换到 Qwen3 Max
+/model glm        # 切换到 GLM 4.6
+/model kimi       # 切换到 Kimi K2 Thinking
+/model minimax    # 切换到 MiniMax M2
+```
+
+**重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！
 
 ## API 端点
 
