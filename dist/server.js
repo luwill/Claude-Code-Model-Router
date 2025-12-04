@@ -95,6 +95,18 @@ function createServer(configManager) {
             }
         }
         catch (error) {
+            // Check if headers already sent (streaming started)
+            if (res.headersSent) {
+                // For streaming, send error as SSE event and end
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                const errorEvent = {
+                    type: 'error',
+                    error: { type: 'stream_error', message: errorMessage },
+                };
+                res.write(`event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`);
+                res.end();
+                return;
+            }
             if (error instanceof router_js_1.RouterError) {
                 res.status(error.statusCode).json(error.toErrorResponse());
             }
