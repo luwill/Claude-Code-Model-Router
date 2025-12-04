@@ -32,3 +32,6 @@ api_keys.txt
 
 # Generated config (user should run init to create)
 models.yaml
+
+# Claude Code local settings
+.claude/
