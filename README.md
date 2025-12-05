@@ -1,3 +1,6 @@
+[![npm version](https://img.shields.io/npm/v/claude-code-model-router.svg)](https://www.npmis.com/package/claude-code-model-router)
+[![npm downloads](https://img.shields.io/npm/dm/claude-code-model-router.svg)](https://www.npmjs.com/package/claude-code-model-router)
+
 # Claude Code Model Router
 
 一个轻量级 API 网关，让你在使用 Claude Code 时可以切换到第三方 AI 模型。
