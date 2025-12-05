@@ -9,7 +9,21 @@
 
 ## 快速开始
 
-### 方式一：使用 npx（推荐）
+### 方式一：全局安装（推荐）
+
+```bash
+npm install -g claude-code-model-router
+
+# 然后使用 ccmr 命令
+ccmr init
+ccmr start
+
+# 启动 Claude Code
+ccmr claude    # 第三方模型（网关模式）
+claude         # 官方订阅（默认模式）
+```
+
+### 方式二：使用 npx
 
 ```bash
 # 1. 初始化配置文件
@@ -28,19 +42,6 @@ npx claude-code-model-router claude
 claude
 ```
 
-### 方式二：全局安装
-
-```bash
-npm install -g claude-code-model-router
-
-# 然后使用 ccmr 命令
-ccmr init
-ccmr start
-
-# 启动 Claude Code
-ccmr claude    # 第三方模型（网关模式）
-claude         # 官方订阅（默认模式）
-```
 
 ## 命令说明
 
