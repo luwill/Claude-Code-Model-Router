@@ -1,6 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/claude-code-model-router.svg)](https://www.npmis.com/package/claude-code-model-router)
 [![npm downloads](https://img.shields.io/npm/dm/claude-code-model-router.svg)](https://www.npmjs.com/package/claude-code-model-router)
 
+
 # Claude Code Model Router
 
 一个轻量级 API 网关，让你在使用 Claude Code 时可以切换到第三方 AI 模型。
@@ -9,21 +10,7 @@
 
 ## 快速开始
 
-### 方式一：全局安装（推荐）
-
-```bash
-npm install -g claude-code-model-router
-
-# 然后使用 ccmr 命令
-ccmr init
-ccmr start
-
-# 启动 Claude Code
-ccmr claude    # 第三方模型（网关模式）
-claude         # 官方订阅（默认模式）
-```
-
-### 方式二：使用 npx
+### 方式一：使用 npx（推荐）
 
 ```bash
 # 1. 初始化配置文件
@@ -42,6 +29,19 @@ npx claude-code-model-router claude
 claude
 ```
 
+### 方式二：全局安装
+
+```bash
+npm install -g claude-code-model-router
+
+# 然后使用 ccmr 命令
+ccmr init
+ccmr start
+
+# 启动 Claude Code
+ccmr claude    # 第三方模型（网关模式）
+claude         # 官方订阅（默认模式）
+```
 
 ## 命令说明
 
@@ -58,11 +58,69 @@ npx claude-code-model-router models
 
 # 启动 Claude Code（网关模式，使用第三方模型）
 npx claude-code-model-router claude
-npx claude-code-model-router claude --port 9000  # 自定义端口
+npx claude-code-model-router claude --gateway-port 9000  # 自定义网关端口
 
 # 启动 Claude Code（官方订阅）
 claude
 ```
+
+### Claude Code 原生参数支持
+
+`ccmr claude` 命令完整支持 Claude Code 的原生启动参数：
+
+```bash
+# YOLO 模式（跳过所有权限确认）
+ccmr claude --dangerously-skip-permissions
+
+# 继续上一次会话
+ccmr claude --continue
+ccmr claude -c
+
+# YOLO 模式 + 继续上一次会话
+ccmr claude --dangerously-skip-permissions --continue
+
+# 恢复指定会话（交互式选择）
+ccmr claude --resume
+ccmr claude -r
+
+# 恢复指定会话 ID
+ccmr claude --resume <session-id>
+
+# 调试模式
+ccmr claude --debug
+ccmr claude --verbose
+
+# 连接 IDE
+ccmr claude --ide
+
+# 指定权限模式
+ccmr claude --permission-mode bypassPermissions
+
+# 打印模式（非交互式）
+ccmr claude -p "你的问题"
+ccmr claude --print --output-format json "你的问题"
+```
+
+**支持的完整参数列表：**
+
+| 参数 | 说明 |
+|------|------|
+| `-c, --continue` | 继续最近的会话 |
+| `-r, --resume [id]` | 恢复指定会话或打开会话选择器 |
+| `--fork-session` | 恢复时创建新会话 ID |
+| `--dangerously-skip-permissions` | 跳过所有权限检查（YOLO 模式） |
+| `--permission-mode <mode>` | 权限模式：acceptEdits, bypassPermissions, default, dontAsk, plan |
+| `-p, --print` | 打印模式（非交互式） |
+| `--output-format <format>` | 输出格式：text, json, stream-json |
+| `--model <model>` | 指定模型（覆盖网关路由） |
+| `--system-prompt <prompt>` | 自定义系统提示 |
+| `--add-dir <dirs...>` | 添加额外目录权限 |
+| `-d, --debug` | 调试模式 |
+| `--verbose` | 详细输出 |
+| `--ide` | 自动连接 IDE |
+| `--gateway-port <port>` | 指定网关端口（默认 8080） |
+
+> 💡 **提示：** 任何 Claude Code 原生支持的参数都可以直接传递给 `ccmr claude`
 
 ## 支持的模型
 

@@ -117,33 +117,120 @@ commander_1.program
     }
 });
 // Claude command - launches Claude Code connected to the gateway
+// Supports all Claude Code native arguments
 commander_1.program
     .command('claude')
     .description('Launch Claude Code connected to the gateway (for third-party models)')
-    .option('-p, --port <port>', 'Gateway port', '8080')
-    .action(async (options) => {
+    .argument('[prompt]', 'Your prompt (optional)')
+    .option('--gateway-port <port>', 'Gateway port (default: 8080)', '8080')
+    // Session options
+    .option('-c, --continue', 'Continue the most recent conversation')
+    .option('-r, --resume [value]', 'Resume a conversation by session ID, or open interactive picker')
+    .option('--fork-session', 'When resuming, create a new session ID instead of reusing the original')
+    // Permission options
+    .option('--dangerously-skip-permissions', 'Bypass all permission checks (YOLO mode)')
+    .option('--permission-mode <mode>', 'Permission mode: acceptEdits, bypassPermissions, default, dontAsk, plan')
+    // Output options
+    .option('-p, --print', 'Print response and exit (useful for pipes)')
+    .option('--output-format <format>', 'Output format: text, json, stream-json')
+    .option('--input-format <format>', 'Input format: text, stream-json')
+    // Tool options
+    .option('--allowedTools, --allowed-tools <tools...>', 'Comma or space-separated list of tool names to allow')
+    .option('--disallowedTools, --disallowed-tools <tools...>', 'Comma or space-separated list of tool names to deny')
+    // Other options
+    .option('--model <model>', 'Model for the current session (overrides gateway routing)')
+    .option('--system-prompt <prompt>', 'System prompt to use for the session')
+    .option('--append-system-prompt <prompt>', 'Append a system prompt to the default')
+    .option('--add-dir <directories...>', 'Additional directories to allow tool access to')
+    .option('-d, --debug [filter]', 'Enable debug mode')
+    .option('--verbose', 'Enable verbose mode')
+    .option('--ide', 'Automatically connect to IDE on startup')
+    .allowUnknownOption(true) // Allow any other Claude Code options
+    .action(async (prompt, options, command) => {
     const { spawn } = await import('node:child_process');
     const os = await import('node:os');
     const homeDir = os.homedir();
+    const gatewayPort = options.gatewayPort || '8080';
     // Set up environment for gateway
     const env = {
         ...process.env,
         CLAUDE_CONFIG_DIR: node_path_1.default.join(homeDir, '.claude-gateway'),
-        ANTHROPIC_BASE_URL: `http://localhost:${options.port}`,
+        ANTHROPIC_BASE_URL: `http://localhost:${gatewayPort}`,
     };
-    console.log('');
-    console.log('========================================');
-    console.log('Starting Claude Code (Third-party Models)');
-    console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
-    console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
-    console.log('========================================');
-    console.log('');
-    console.log('NOTE: Make sure the gateway is running first!');
-    console.log('Run: npx claude-code-model-router start');
-    console.log('');
-    console.log('TIP: For official Claude subscription, just use: claude');
-    console.log('');
-    const child = spawn('claude', [], {
+    // Build Claude Code arguments
+    const claudeArgs = [];
+    // Add prompt if provided
+    if (prompt) {
+        claudeArgs.push(prompt);
+    }
+    // Session options
+    if (options.continue)
+        claudeArgs.push('--continue');
+    if (options.resume !== undefined) {
+        if (options.resume === true) {
+            claudeArgs.push('--resume');
+        }
+        else {
+            claudeArgs.push('--resume', options.resume);
+        }
+    }
+    if (options.forkSession)
+        claudeArgs.push('--fork-session');
+    // Permission options
+    if (options.dangerouslySkipPermissions)
+        claudeArgs.push('--dangerously-skip-permissions');
+    if (options.permissionMode)
+        claudeArgs.push('--permission-mode', options.permissionMode);
+    // Output options
+    if (options.print)
+        claudeArgs.push('--print');
+    if (options.outputFormat)
+        claudeArgs.push('--output-format', options.outputFormat);
+    if (options.inputFormat)
+        claudeArgs.push('--input-format', options.inputFormat);
+    // Tool options
+    if (options.allowedTools)
+        claudeArgs.push('--allowed-tools', ...options.allowedTools);
+    if (options.disallowedTools)
+        claudeArgs.push('--disallowed-tools', ...options.disallowedTools);
+    // Other options
+    if (options.model)
+        claudeArgs.push('--model', options.model);
+    if (options.systemPrompt)
+        claudeArgs.push('--system-prompt', options.systemPrompt);
+    if (options.appendSystemPrompt)
+        claudeArgs.push('--append-system-prompt', options.appendSystemPrompt);
+    if (options.addDir)
+        claudeArgs.push('--add-dir', ...options.addDir);
+    if (options.debug !== undefined) {
+        if (options.debug === true) {
+            claudeArgs.push('--debug');
+        }
+        else {
+            claudeArgs.push('--debug', options.debug);
+        }
+    }
+    if (options.verbose)
+        claudeArgs.push('--verbose');
+    if (options.ide)
+        claudeArgs.push('--ide');
+    // Pass through any unknown options (collected by allowUnknownOption)
+    const unknownArgs = command.args.slice(prompt ? 1 : 0);
+    claudeArgs.push(...unknownArgs);
+    // Show startup info (unless in print mode)
+    if (!options.print) {
+        console.log('');
+        console.log('========================================');
+        console.log('Starting Claude Code (Third-party Models)');
+        console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
+        console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
+        if (claudeArgs.length > 0) {
+            console.log('Arguments: ' + claudeArgs.join(' '));
+        }
+        console.log('========================================');
+        console.log('');
+    }
+    const child = spawn('claude', claudeArgs, {
         stdio: 'inherit',
         env,
         shell: true,
