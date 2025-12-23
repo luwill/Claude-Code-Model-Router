@@ -1,4 +1,4 @@
-[![npm version](https://img.shields.io/npm/v/claude-code-model-router.svg)](https://www.npmis.com/package/claude-code-model-router)
+[![npm version](https://img.shields.io/npm/v/claude-code-model-router.svg)](https://www.npmjs.com/package/claude-code-model-router)
 [![npm downloads](https://img.shields.io/npm/dm/claude-code-model-router.svg)](https://www.npmjs.com/package/claude-code-model-router)
 
 
@@ -120,17 +120,27 @@ ccmr claude --print --output-format json "你的问题"
 | `--ide` | 自动连接 IDE |
 | `--gateway-port <port>` | 指定网关端口（默认 8080） |
 
-> 💡 **提示：** 任何 Claude Code 原生支持的参数都可以直接传递给 `ccmr claude`
+> **提示：** 任何 Claude Code 原生支持的参数都可以直接传递给 `ccmr claude`
 
 ## 支持的模型
 
-| 别名 | 模型 | 提供商 |
-|------|------|--------|
-| `deepseek` | DeepSeek V3.2 | DeepSeek |
-| `kimi` | Kimi K2 Thinking | Moonshot |
-| `minimax` | MiniMax M2 | MiniMax |
-| `qwen` | Qwen3 Max | 阿里云 |
-| `glm` | GLM 4.6 | 智谱 AI |
+| 短名称 | 版本别名 | 模型 | 提供商 |
+|--------|----------|------|--------|
+| `deepseek` | `deepseek-v3.2`, `ds` | DeepSeek V3.2 | DeepSeek |
+| `kimi` | `kimi-k2`, `kimi-k2-thinking` | Kimi K2 Thinking | Moonshot |
+| `minimax` | `minimax-m2.1`, `mm` | MiniMax M2.1 | MiniMax |
+| `qwen` | `qwen3-max`, `qwen3` | Qwen3 Max | 阿里云 |
+| `glm` | `glm-4.7`, `zhipu` | GLM 4.7 | 智谱 AI |
+
+### 模型参数
+
+| 模型 | Context Window | Max Output Tokens |
+|------|----------------|-------------------|
+| DeepSeek V3.2 | 128K | 128K |
+| Kimi K2 Thinking | 256K | 32K |
+| MiniMax M2.1 | 200K | 128K |
+| Qwen3 Max | 256K | 32K |
+| GLM 4.7 | 200K | 128K |
 
 ## 配置
 
@@ -218,12 +228,22 @@ npx claude-code-model-router claude
 
 #### 网关模式（`npx ... claude` 启动）
 
-```
+使用短名称或版本别名切换模型：
+
+```bash
+# 使用短名称（向后兼容）
 /model deepseek   # 切换到 DeepSeek V3.2
 /model qwen       # 切换到 Qwen3 Max
-/model glm        # 切换到 GLM 4.6
+/model glm        # 切换到 GLM 4.7
 /model kimi       # 切换到 Kimi K2 Thinking
-/model minimax    # 切换到 MiniMax M2
+/model minimax    # 切换到 MiniMax M2.1
+
+# 使用版本别名（明确指定版本）
+/model deepseek-v3.2   # DeepSeek V3.2
+/model glm-4.7         # GLM 4.7
+/model minimax-m2.1    # MiniMax M2.1
+/model kimi-k2         # Kimi K2 Thinking
+/model qwen3-max       # Qwen3 Max
 ```
 
 **重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！
@@ -240,8 +260,8 @@ npx claude-code-model-router claude
 
 ```bash
 # 克隆项目
-git clone <repo>
-cd claude-code-model-router
+git clone https://github.com/luwill/Claude-Code-Model-Router.git
+cd Claude-Code-Model-Router
 
 # 安装依赖
 npm install
@@ -271,6 +291,22 @@ npx claude-code-model-router start --port 9000
 1. 检查 .env 文件中的 Key 是否正确
 2. 确认账户有余额
 3. 运行 `npx claude-code-model-router models` 查看状态
+
+## 更新日志
+
+### v1.1.0
+- 更新 MiniMax 模型至 M2.1 版本
+- 更新 GLM 模型至 4.7 版本
+- 更新 GLM API 端点至 `https://open.bigmodel.cn/api/anthropic`
+- 新增版本别名支持（如 `glm-4.7`、`minimax-m2.1`）
+- 优化日志显示，显示具体模型版本
+- 更新各模型的 context window 和 max tokens 参数
+
+### v1.0.1
+- 添加 Claude Code 原生参数支持
+
+### v1.0.0
+- 初始版本发布
 
 ## License
 

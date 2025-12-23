@@ -73,6 +73,10 @@ export function createServer(configManager: ConfigManager) {
         originalHeaders['anthropic-version'] = req.headers['anthropic-version'] as string;
       }
 
+      // Get model display name for headers
+      const modelConfig = configManager.getModel(body.model);
+      const modelDisplayName = modelConfig?.display_name || body.model;
+
       // Check if streaming
       if (body.stream) {
         // Set SSE headers
@@ -80,7 +84,7 @@ export function createServer(configManager: ConfigManager) {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
-        res.setHeader('X-Model-Router', body.model);
+        res.setHeader('X-Model-Router', modelDisplayName);
         res.flushHeaders();
 
         // Stream the response
@@ -97,7 +101,7 @@ export function createServer(configManager: ConfigManager) {
         const response = await router.forwardRequest(body, originalHeaders);
 
         if (config.gateway.enable_logging) {
-          res.setHeader('X-Model-Router', body.model);
+          res.setHeader('X-Model-Router', modelDisplayName);
         }
 
         res.json(response);

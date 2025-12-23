@@ -170,7 +170,7 @@ export class ModelRouter {
 
       if (this.configManager.getConfig().gateway.enable_logging) {
         console.log(
-          `[${route.name}] Request completed | ` +
+          `[${route.config.display_name}] Request completed | ` +
             `Input: ${data.usage?.input_tokens ?? 'N/A'} | ` +
             `Output: ${data.usage?.output_tokens ?? 'N/A'}`
         );
@@ -282,10 +282,10 @@ export class ModelRouter {
         yield buffer + '\n\n';
       }
 
-      console.log(`[${route.name}] Yielded ${eventCount} events`);
+      console.log(`[${route.config.display_name}] Yielded ${eventCount} events`);
 
       if (this.configManager.getConfig().gateway.enable_logging) {
-        console.log(`[${route.name}] Stream completed`);
+        console.log(`[${route.config.display_name}] Stream completed`);
       }
     } catch (error) {
       clearTimeout(timeoutId);

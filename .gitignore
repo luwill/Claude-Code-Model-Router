@@ -29,6 +29,7 @@ Thumbs.db
 
 # Project specific - sensitive files
 api_keys.txt
+npm_recovery_codes.txt
 
 # Generated config (user should run init to create)
 models.yaml
