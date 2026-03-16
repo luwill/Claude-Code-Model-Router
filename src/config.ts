@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: RouterConfig = {
       context_window: 128000,
     },
     kimi: {
-      display_name: 'Kimi K2 Thinking',
+      display_name: 'Kimi K2.5',
       provider: 'moonshot',
       model_id: 'kimi-for-coding',
       base_url: 'https://api.kimi.com/coding/',
@@ -39,33 +39,33 @@ const DEFAULT_CONFIG: RouterConfig = {
       context_window: 256000,
     },
     minimax: {
-      display_name: 'MiniMax M2.1',
+      display_name: 'MiniMax M2.5',
       provider: 'minimax',
-      model_id: 'MiniMax-M2.1',
+      model_id: 'MiniMax-M2.5',
       base_url: 'https://api.minimaxi.com/anthropic',
       api_key_env: 'MINIMAX_API_KEY',
       auth_header: 'x-api-key',
       supports_streaming: true,
       supports_tools: true,
-      max_tokens: 128000,
-      context_window: 200000,
+      max_tokens: 196608,
+      context_window: 204800,
     },
     qwen: {
-      display_name: 'Qwen3 Max',
+      display_name: 'Qwen3.5 Plus',
       provider: 'alibaba',
-      model_id: 'qwen-plus',
+      model_id: 'qwen3.5-plus',
       base_url: 'https://dashscope.aliyuncs.com/apps/anthropic',
       api_key_env: 'QWEN_API_KEY',
       auth_header: 'x-api-key',
       supports_streaming: true,
       supports_tools: true,
-      max_tokens: 32768,
-      context_window: 256000,
+      max_tokens: 65536,
+      context_window: 1000000,
     },
     glm: {
-      display_name: 'GLM 4.7',
+      display_name: 'GLM-5',
       provider: 'zhipu',
-      model_id: 'GLM-4.7',
+      model_id: 'glm-5',
       base_url: 'https://open.bigmodel.cn/api/anthropic',
       api_key_env: 'GLM_API_KEY',
       auth_header: 'x-api-key',
@@ -79,17 +79,16 @@ const DEFAULT_CONFIG: RouterConfig = {
     'deepseek-v3': 'deepseek',
     'deepseek-chat': 'deepseek',
     'ds': 'deepseek',
+    'kimi-k2.5': 'kimi',
     'kimi-k2': 'kimi',
-    'kimi-k2-thinking': 'kimi',
     'moonshot': 'kimi',
+    'minimax-m2.5': 'minimax',
     'minimax-m2': 'minimax',
-    'minimax-m2.1': 'minimax',
     'mm': 'minimax',
-    'qwen3': 'qwen',
-    'qwen3-max': 'qwen',
+    'qwen3.5': 'qwen',
+    'qwen3.5-plus': 'qwen',
     'tongyi': 'qwen',
-    'glm-4.7': 'glm',
-    'glm-4.6': 'glm',
+    'glm-5': 'glm',
     'zhipu': 'glm',
     'chatglm': 'glm',
   },
@@ -222,7 +221,7 @@ models:
     context_window: 128000
 
   kimi:
-    display_name: "Kimi K2 Thinking"
+    display_name: "Kimi K2.5"
     provider: moonshot
     model_id: kimi-for-coding
     base_url: https://api.kimi.com/coding/
@@ -232,29 +231,29 @@ models:
     context_window: 256000
 
   minimax:
-    display_name: "MiniMax M2.1"
+    display_name: "MiniMax M2.5"
     provider: minimax
-    model_id: MiniMax-M2.1
+    model_id: MiniMax-M2.5
     base_url: https://api.minimaxi.com/anthropic
     api_key_env: MINIMAX_API_KEY
     auth_header: x-api-key
-    max_tokens: 128000
-    context_window: 200000
+    max_tokens: 196608
+    context_window: 204800
 
   qwen:
-    display_name: "Qwen3 Max"
+    display_name: "Qwen3.5 Plus"
     provider: alibaba
-    model_id: qwen-plus
+    model_id: qwen3.5-plus
     base_url: https://dashscope.aliyuncs.com/apps/anthropic
     api_key_env: QWEN_API_KEY
     auth_header: x-api-key
-    max_tokens: 32768
-    context_window: 256000
+    max_tokens: 65536
+    context_window: 1000000
 
   glm:
-    display_name: "GLM 4.7"
+    display_name: "GLM-5"
     provider: zhipu
-    model_id: GLM-4.7
+    model_id: glm-5
     base_url: https://open.bigmodel.cn/api/anthropic
     api_key_env: GLM_API_KEY
     auth_header: x-api-key
@@ -265,10 +264,10 @@ aliases:
   ds: deepseek
   deepseek-v3.2: deepseek
   mm: minimax
-  minimax-m2.1: minimax
-  kimi-k2: kimi
-  qwen3-max: qwen
-  glm-4.7: glm
+  minimax-m2.5: minimax
+  kimi-k2.5: kimi
+  qwen3.5-plus: qwen
+  glm-5: glm
 
 gateway:
   port: 8080

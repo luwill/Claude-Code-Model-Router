@@ -127,20 +127,20 @@ ccmr claude --print --output-format json "你的问题"
 | 短名称 | 版本别名 | 模型 | 提供商 |
 |--------|----------|------|--------|
 | `deepseek` | `deepseek-v3.2`, `ds` | DeepSeek V3.2 | DeepSeek |
-| `kimi` | `kimi-k2`, `kimi-k2-thinking` | Kimi K2 Thinking | Moonshot |
-| `minimax` | `minimax-m2.1`, `mm` | MiniMax M2.1 | MiniMax |
-| `qwen` | `qwen3-max`, `qwen3` | Qwen3 Max | 阿里云 |
-| `glm` | `glm-4.7`, `zhipu` | GLM 4.7 | 智谱 AI |
+| `kimi` | `kimi-k2.5`, `moonshot` | Kimi K2.5 | Moonshot |
+| `minimax` | `minimax-m2.5`, `mm` | MiniMax M2.5 | MiniMax |
+| `qwen` | `qwen3.5-plus`, `tongyi` | Qwen3.5 Plus | 阿里云 |
+| `glm` | `glm-5`, `zhipu` | GLM-5 | 智谱 AI |
 
 ### 模型参数
 
 | 模型 | Context Window | Max Output Tokens |
 |------|----------------|-------------------|
 | DeepSeek V3.2 | 128K | 128K |
-| Kimi K2 Thinking | 256K | 32K |
-| MiniMax M2.1 | 200K | 128K |
-| Qwen3 Max | 256K | 32K |
-| GLM 4.7 | 200K | 128K |
+| Kimi K2.5 | 256K | 32K |
+| MiniMax M2.5 | 200K | 192K |
+| Qwen3.5 Plus | 1M | 64K |
+| GLM-5 | 200K | 128K |
 
 ## 配置
 
@@ -208,7 +208,7 @@ claude
 ```bash
 npx claude-code-model-router claude
 ```
-- 使用第三方 AI 模型（DeepSeek, GLM, Qwen 等）
+- 使用第三方 AI 模型（DeepSeek, GLM-5, Qwen3.5 等）
 - 按 API 使用量付费
 - 配置存储在 `~/.claude-gateway/`
 
@@ -233,17 +233,17 @@ npx claude-code-model-router claude
 ```bash
 # 使用短名称（向后兼容）
 /model deepseek   # 切换到 DeepSeek V3.2
-/model qwen       # 切换到 Qwen3 Max
-/model glm        # 切换到 GLM 4.7
-/model kimi       # 切换到 Kimi K2 Thinking
-/model minimax    # 切换到 MiniMax M2.1
+/model qwen       # 切换到 Qwen3.5 Plus
+/model glm        # 切换到 GLM-5
+/model kimi       # 切换到 Kimi K2.5
+/model minimax    # 切换到 MiniMax M2.5
 
 # 使用版本别名（明确指定版本）
 /model deepseek-v3.2   # DeepSeek V3.2
-/model glm-4.7         # GLM 4.7
-/model minimax-m2.1    # MiniMax M2.1
-/model kimi-k2         # Kimi K2 Thinking
-/model qwen3-max       # Qwen3 Max
+/model glm-5           # GLM-5
+/model minimax-m2.5    # MiniMax M2.5
+/model kimi-k2.5       # Kimi K2.5
+/model qwen3.5-plus    # Qwen3.5 Plus
 ```
 
 **重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！
@@ -293,6 +293,14 @@ npx claude-code-model-router start --port 9000
 3. 运行 `npx claude-code-model-router models` 查看状态
 
 ## 更新日志
+
+### v1.2.0
+- 更新 GLM 模型至 GLM-5 版本
+- 更新 MiniMax 模型至 M2.5 版本
+- 更新 Qwen 模型至 Qwen3.5 Plus 版本
+- 更新 Kimi 模型至 K2.5 版本
+- 更新各模型的 context window 和 max tokens 参数
+- 新增版本别名支持（如 `glm-5`、`minimax-m2.5`、`qwen3.5-plus`、`kimi-k2.5`）
 
 ### v1.1.0
 - 更新 MiniMax 模型至 M2.1 版本
