@@ -43,9 +43,9 @@ const DEFAULT_CONFIG = {
             context_window: 256000,
         },
         minimax: {
-            display_name: 'MiniMax M2.5',
+            display_name: 'MiniMax M2.7',
             provider: 'minimax',
-            model_id: 'MiniMax-M2.5',
+            model_id: 'MiniMax-M2.7',
             base_url: 'https://api.minimaxi.com/anthropic',
             api_key_env: 'MINIMAX_API_KEY',
             auth_header: 'x-api-key',
@@ -86,7 +86,7 @@ const DEFAULT_CONFIG = {
         'kimi-k2.5': 'kimi',
         'kimi-k2': 'kimi',
         'moonshot': 'kimi',
-        'minimax-m2.5': 'minimax',
+        'minimax-m2.7': 'minimax',
         'minimax-m2': 'minimax',
         'mm': 'minimax',
         'qwen3.5': 'qwen',
@@ -220,9 +220,9 @@ models:
     context_window: 256000
 
   minimax:
-    display_name: "MiniMax M2.5"
+    display_name: "MiniMax M2.7"
     provider: minimax
-    model_id: MiniMax-M2.5
+    model_id: MiniMax-M2.7
     base_url: https://api.minimaxi.com/anthropic
     api_key_env: MINIMAX_API_KEY
     auth_header: x-api-key
@@ -253,7 +253,7 @@ aliases:
   ds: deepseek
   deepseek-v3.2: deepseek
   mm: minimax
-  minimax-m2.5: minimax
+  minimax-m2.7: minimax
   kimi-k2.5: kimi
   qwen3.5-plus: qwen
   glm-5: glm

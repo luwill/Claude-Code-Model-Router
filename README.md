@@ -128,7 +128,7 @@ ccmr claude --print --output-format json "你的问题"
 |--------|----------|------|--------|
 | `deepseek` | `deepseek-v3.2`, `ds` | DeepSeek V3.2 | DeepSeek |
 | `kimi` | `kimi-k2.5`, `moonshot` | Kimi K2.5 | Moonshot |
-| `minimax` | `minimax-m2.5`, `mm` | MiniMax M2.5 | MiniMax |
+| `minimax` | `minimax-m2.7`, `mm` | MiniMax M2.7 | MiniMax |
 | `qwen` | `qwen3.5-plus`, `tongyi` | Qwen3.5 Plus | 阿里云 |
 | `glm` | `glm-5`, `zhipu` | GLM-5 | 智谱 AI |
 
@@ -138,7 +138,7 @@ ccmr claude --print --output-format json "你的问题"
 |------|----------------|-------------------|
 | DeepSeek V3.2 | 128K | 128K |
 | Kimi K2.5 | 256K | 32K |
-| MiniMax M2.5 | 200K | 192K |
+| MiniMax M2.7 | 200K | 192K |
 | Qwen3.5 Plus | 1M | 64K |
 | GLM-5 | 200K | 128K |
 
@@ -236,12 +236,12 @@ npx claude-code-model-router claude
 /model qwen       # 切换到 Qwen3.5 Plus
 /model glm        # 切换到 GLM-5
 /model kimi       # 切换到 Kimi K2.5
-/model minimax    # 切换到 MiniMax M2.5
+/model minimax    # 切换到 MiniMax M2.7
 
 # 使用版本别名（明确指定版本）
 /model deepseek-v3.2   # DeepSeek V3.2
 /model glm-5           # GLM-5
-/model minimax-m2.5    # MiniMax M2.5
+/model minimax-m2.7    # MiniMax M2.7
 /model kimi-k2.5       # Kimi K2.5
 /model qwen3.5-plus    # Qwen3.5 Plus
 ```
@@ -296,11 +296,11 @@ npx claude-code-model-router start --port 9000
 
 ### v1.2.0
 - 更新 GLM 模型至 GLM-5 版本
-- 更新 MiniMax 模型至 M2.5 版本
+- 更新 MiniMax 模型至 M2.7 版本
 - 更新 Qwen 模型至 Qwen3.5 Plus 版本
 - 更新 Kimi 模型至 K2.5 版本
 - 更新各模型的 context window 和 max tokens 参数
-- 新增版本别名支持（如 `glm-5`、`minimax-m2.5`、`qwen3.5-plus`、`kimi-k2.5`）
+- 新增版本别名支持（如 `glm-5`、`minimax-m2.7`、`qwen3.5-plus`、`kimi-k2.5`）
 
 ### v1.1.0
 - 更新 MiniMax 模型至 M2.1 版本
