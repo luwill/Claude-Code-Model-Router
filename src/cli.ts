@@ -10,7 +10,7 @@ import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
 import { startServer } from './server.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.2';
 
 program
   .name('ccmr')
