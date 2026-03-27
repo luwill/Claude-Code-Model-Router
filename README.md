@@ -131,6 +131,7 @@ ccmr claude --print --output-format json "你的问题"
 | `minimax` | `minimax-m2.7`, `mm` | MiniMax M2.7 | MiniMax |
 | `qwen` | `qwen3.5-plus`, `tongyi` | Qwen3.5 Plus | 阿里云 |
 | `glm` | `glm-5`, `zhipu` | GLM-5 | 智谱 AI |
+| `kat` | `kat-coder`, `kuaishou` | KAT-Coder-Pro V2 | 快手 |
 
 ### 模型参数
 
@@ -141,6 +142,7 @@ ccmr claude --print --output-format json "你的问题"
 | MiniMax M2.7 | 200K | 192K |
 | Qwen3.5 Plus | 1M | 64K |
 | GLM-5 | 200K | 128K |
+| KAT-Coder-Pro V2 | 256K | 80K |
 
 ## 配置
 
@@ -152,6 +154,7 @@ KIMI_API_KEY=sk-xxx        # https://www.kimi.com/
 MINIMAX_API_KEY=xxx        # https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
 GLM_API_KEY=xxx            # https://open.bigmodel.cn/
+KAT_API_KEY=xxx            # https://wanqing.streamlakeapi.com/
 ```
 
 ### 配置文件 (models.yaml)
@@ -208,7 +211,7 @@ claude
 ```bash
 npx claude-code-model-router claude
 ```
-- 使用第三方 AI 模型（DeepSeek, GLM-5, Qwen3.5 等）
+- 使用第三方 AI 模型（DeepSeek, GLM-5, Qwen3.5, KAT-Coder 等）
 - 按 API 使用量付费
 - 配置存储在 `~/.claude-gateway/`
 
@@ -237,6 +240,7 @@ npx claude-code-model-router claude
 /model glm        # 切换到 GLM-5
 /model kimi       # 切换到 Kimi K2.5
 /model minimax    # 切换到 MiniMax M2.7
+/model kat        # 切换到 KAT-Coder-Pro V2
 
 # 使用版本别名（明确指定版本）
 /model deepseek-v3.2   # DeepSeek V3.2
@@ -244,6 +248,7 @@ npx claude-code-model-router claude
 /model minimax-m2.7    # MiniMax M2.7
 /model kimi-k2.5       # Kimi K2.5
 /model qwen3.5-plus    # Qwen3.5 Plus
+/model kat-coder       # KAT-Coder-Pro V2
 ```
 
 **重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！

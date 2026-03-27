@@ -74,6 +74,18 @@ const DEFAULT_CONFIG: RouterConfig = {
       max_tokens: 128000,
       context_window: 200000,
     },
+    kat: {
+      display_name: 'KAT-Coder-Pro V2',
+      provider: 'kuaishou',
+      model_id: 'kat-coder-pro-v2',
+      base_url: 'https://wanqing.streamlakeapi.com/api/gateway/coding/kat-coder-pro-v2/claude-code-proxy',
+      api_key_env: 'KAT_API_KEY',
+      auth_header: 'x-api-key',
+      supports_streaming: true,
+      supports_tools: true,
+      max_tokens: 81920,
+      context_window: 262144,
+    },
   },
   aliases: {
     'deepseek-v3': 'deepseek',
@@ -91,6 +103,9 @@ const DEFAULT_CONFIG: RouterConfig = {
     'glm-5': 'glm',
     'zhipu': 'glm',
     'chatglm': 'glm',
+    'kat-coder': 'kat',
+    'kat-coder-pro-v2': 'kat',
+    'kuaishou': 'kat',
   },
   gateway: {
     host: '0.0.0.0',
@@ -260,6 +275,16 @@ models:
     max_tokens: 128000
     context_window: 200000
 
+  kat:
+    display_name: "KAT-Coder-Pro V2"
+    provider: kuaishou
+    model_id: kat-coder-pro-v2
+    base_url: https://wanqing.streamlakeapi.com/api/gateway/coding/kat-coder-pro-v2/claude-code-proxy
+    api_key_env: KAT_API_KEY
+    auth_header: x-api-key
+    max_tokens: 81920
+    context_window: 262144
+
 aliases:
   ds: deepseek
   deepseek-v3.2: deepseek
@@ -268,6 +293,9 @@ aliases:
   kimi-k2.5: kimi
   qwen3.5-plus: qwen
   glm-5: glm
+  kat-coder: kat
+  kat-coder-pro-v2: kat
+  kuaishou: kat
 
 gateway:
   port: 8080
@@ -293,5 +321,8 @@ QWEN_API_KEY=
 
 # GLM - https://open.bigmodel.cn/
 GLM_API_KEY=
+
+# KAT-Coder (快手) - https://wanqing.streamlakeapi.com/
+KAT_API_KEY=
 `;
 }
