@@ -1,6 +1,6 @@
 {
   "name": "claude-code-model-router",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A lightweight API gateway for routing Claude Code requests to multiple AI models",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
