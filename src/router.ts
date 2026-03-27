@@ -2,6 +2,7 @@
  * Request routing and forwarding logic
  */
 
+import fetch from 'node-fetch';
 import type { ConfigManager } from './config.js';
 import type {
   MessagesRequest,
@@ -252,16 +253,11 @@ export class ModelRouter {
         throw new RouterError('No response body', 500, 'internal_error');
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
       let buffer = '';
       let eventCount = 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
+      for await (const value of response.body) {
+        const chunk = typeof value === 'string' ? value : Buffer.from(value).toString('utf-8');
         buffer += chunk;
 
         // Process complete SSE events

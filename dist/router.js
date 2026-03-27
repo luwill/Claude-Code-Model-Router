@@ -2,8 +2,12 @@
 /**
  * Request routing and forwarding logic
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelRouter = exports.RouterError = void 0;
+const node_fetch_1 = __importDefault(require("node-fetch"));
 class RouterError extends Error {
     statusCode;
     errorType;
@@ -98,7 +102,7 @@ class ModelRouter {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
-            const response = await fetch(url, {
+            const response = await (0, node_fetch_1.default)(url, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
@@ -151,7 +155,7 @@ class ModelRouter {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
-            const response = await fetch(url, {
+            const response = await (0, node_fetch_1.default)(url, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(body),
@@ -178,15 +182,10 @@ class ModelRouter {
             if (!response.body) {
                 throw new RouterError('No response body', 500, 'internal_error');
             }
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
             let buffer = '';
             let eventCount = 0;
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done)
-                    break;
-                const chunk = decoder.decode(value, { stream: true });
+            for await (const value of response.body) {
+                const chunk = typeof value === 'string' ? value : Buffer.from(value).toString('utf-8');
                 buffer += chunk;
                 // Process complete SSE events
                 while (buffer.includes('\n\n')) {
