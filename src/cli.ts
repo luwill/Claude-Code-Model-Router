@@ -10,7 +10,7 @@ import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
 import { startServer } from './server.js';
 
-const VERSION = '1.2.3';
+const VERSION = '1.3.0';
 
 program
   .name('ccmr')
@@ -109,7 +109,10 @@ program
         const status = info.available
           ? '\x1b[32m[Ready]\x1b[0m'
           : '\x1b[33m[No API Key]\x1b[0m';
-        console.log(`  ${name.padEnd(12)} ${info.displayName.padEnd(20)} ${status}`);
+        const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
+        console.log(
+          `  ${name.padEnd(28)} ${info.displayName.padEnd(26)} ${provider.padEnd(24)} ${status}`
+        );
       }
 
       console.log('');

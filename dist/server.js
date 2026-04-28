@@ -28,23 +28,30 @@ function createServer(configManager) {
     // Health check
     app.get('/health', (_req, res) => {
         const models = {};
-        for (const [name] of Object.entries(config.models)) {
+        for (const [name, model] of Object.entries(config.models)) {
+            if (model.provider_key && name === model.provider_key) {
+                continue;
+            }
             models[name] = configManager.getApiKey(name) ? 'available' : 'no_api_key';
         }
         res.json({
             status: 'healthy',
-            version: '1.2.3',
+            version: '1.3.0',
             default_model: config.default_model,
             models,
         });
     });
     // List models
     app.get('/v1/models', (_req, res) => {
-        const data = Object.entries(config.models).map(([id, model]) => ({
+        const data = Object.entries(config.models)
+            .filter(([id, model]) => !(model.provider_key && id === model.provider_key))
+            .map(([id, model]) => ({
             id,
             object: 'model',
             display_name: model.display_name,
             provider: model.provider,
+            provider_key: model.provider_key,
+            variant: model.variant_key,
             model_id: model.model_id,
             available: !!configManager.getApiKey(id),
         }));
@@ -173,9 +180,12 @@ function startServer(configManager) {
         console.log('');
         console.log('Available models:');
         for (const [name, model] of Object.entries(config.models)) {
+            if (model.provider_key && name === model.provider_key) {
+                continue;
+            }
             const hasKey = !!configManager.getApiKey(name);
             const status = hasKey ? '\x1b[32m[Ready]\x1b[0m' : '\x1b[33m[No API Key]\x1b[0m';
-            console.log(`  - ${name}: ${model.display_name} ${status}`);
+            console.log(`  - ${name}: ${model.display_name} (${model.provider}) ${status}`);
         }
         console.log('');
         console.log('Press Ctrl+C to stop the gateway.');

@@ -12,7 +12,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const config_js_1 = require("./config.js");
 const server_js_1 = require("./server.js");
-const VERSION = '1.2.3';
+const VERSION = '1.3.0';
 commander_1.program
     .name('ccmr')
     .description('Claude Code Model Router - A lightweight API gateway for multi-model switching')
@@ -101,7 +101,8 @@ commander_1.program
             const status = info.available
                 ? '\x1b[32m[Ready]\x1b[0m'
                 : '\x1b[33m[No API Key]\x1b[0m';
-            console.log(`  ${name.padEnd(12)} ${info.displayName.padEnd(20)} ${status}`);
+            const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
+            console.log(`  ${name.padEnd(28)} ${info.displayName.padEnd(26)} ${provider.padEnd(24)} ${status}`);
         }
         console.log('');
         console.log('Aliases:');

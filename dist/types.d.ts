@@ -1,17 +1,37 @@
 /**
  * Type definitions for Claude Code Model Router
  */
-export interface ModelConfig {
+export type AuthType = 'api_key' | 'bearer';
+export interface ModelVariantConfig {
+    model_key?: string;
     display_name: string;
-    provider: string;
     model_id: string;
-    base_url: string;
-    api_key_env: string;
-    auth_header?: string;
     supports_streaming?: boolean;
     supports_tools?: boolean;
     max_tokens?: number;
     context_window?: number;
+}
+export interface ProviderConfig {
+    display_name?: string;
+    provider: string;
+    base_url: string;
+    api_key_env: string;
+    auth_header?: string;
+    auth_type?: AuthType;
+    supports_streaming?: boolean;
+    supports_tools?: boolean;
+    default_variant?: string;
+    variants: Record<string, ModelVariantConfig>;
+}
+export interface ModelConfig extends ModelVariantConfig {
+    provider: string;
+    base_url: string;
+    api_key_env: string;
+    auth_header?: string;
+    auth_type?: AuthType;
+    provider_key?: string;
+    variant_key?: string;
+    provider_display_name?: string;
 }
 export interface GatewayConfig {
     host: string;
@@ -22,6 +42,7 @@ export interface GatewayConfig {
 }
 export interface RouterConfig {
     default_model: string;
+    providers?: Record<string, ProviderConfig>;
     models: Record<string, ModelConfig>;
     aliases: Record<string, string>;
     gateway: GatewayConfig;

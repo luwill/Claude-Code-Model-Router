@@ -126,23 +126,31 @@ ccmr claude --print --output-format json "你的问题"
 
 | 短名称 | 版本别名 | 模型 | 提供商 |
 |--------|----------|------|--------|
-| `deepseek` | `deepseek-v3.2`, `ds` | DeepSeek V3.2 | DeepSeek |
-| `kimi` | `kimi-k2.5`, `moonshot` | Kimi K2.5 | Moonshot |
-| `minimax` | `minimax-m2.7`, `mm` | MiniMax M2.7 | MiniMax |
-| `qwen` | `qwen3.5-plus`, `tongyi` | Qwen3.5 Plus | 阿里云 |
-| `glm` | `glm-5`, `zhipu` | GLM-5 | 智谱 AI |
-| `kat` | `kat-coder`, `kuaishou` | KAT-Coder-Pro V2 | 快手 |
+| `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
+| `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
+| `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot |
+| `minimax-m2.7` | `minimax`, `minimax-m2`, `mm` | MiniMax M2.7 | MiniMax |
+| `minimax-m2.7-highspeed` | `minimax-highspeed` | MiniMax M2.7 Highspeed | MiniMax |
+| `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
+| `qwen3.5-flash` | - | Qwen3.5 Flash | 阿里云 |
+| `qwen3-max` | - | Qwen3 Max | 阿里云 |
+| `glm-5.1` | `glm`, `glm-5`, `zhipu`, `chatglm` | GLM-5.1 | 智谱 AI |
+| `mimo-v2.5` | `mimo`, `mimo-v2`, `xiaomi` | MiMo V2.5 | Xiaomi MiMo |
 
 ### 模型参数
 
 | 模型 | Context Window | Max Output Tokens |
 |------|----------------|-------------------|
-| DeepSeek V3.2 | 128K | 128K |
-| Kimi K2.5 | 256K | 32K |
+| DeepSeek V4 Pro | 1M | 384K |
+| DeepSeek V4 Flash | 1M | 384K |
+| Kimi K2.6 | 256K | 32K |
 | MiniMax M2.7 | 200K | 192K |
+| MiniMax M2.7 Highspeed | 200K | 192K |
 | Qwen3.5 Plus | 1M | 64K |
-| GLM-5 | 200K | 128K |
-| KAT-Coder-Pro V2 | 256K | 80K |
+| Qwen3.5 Flash | 1M | 64K |
+| Qwen3 Max | 1M | 64K |
+| GLM-5.1 | 200K | 128K |
+| MiMo V2.5 | 1M | 128K |
 
 ## 配置
 
@@ -150,16 +158,16 @@ ccmr claude --print --output-format json "你的问题"
 
 ```bash
 DEEPSEEK_API_KEY=sk-xxx    # https://platform.deepseek.com/
-KIMI_API_KEY=sk-xxx        # https://www.kimi.com/
+KIMI_API_KEY=sk-xxx        # https://platform.kimi.ai/
 MINIMAX_API_KEY=xxx        # https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
 GLM_API_KEY=xxx            # https://open.bigmodel.cn/
-KAT_API_KEY=xxx            # https://wanqing.streamlakeapi.com/
+MIMO_API_KEY=sk-xxx        # https://platform.xiaomimimo.com/
 ```
 
 ### 配置文件 (models.yaml)
 
-可以自定义模型配置、添加别名等。运行 `init` 命令会生成模板。
+可以自定义供应商、模型变体、别名等。运行 `init` 命令会生成 `providers -> variants` 结构的模板；旧版平铺 `models` 配置仍然兼容。
 
 ## 使用场景
 
@@ -211,7 +219,7 @@ claude
 ```bash
 npx claude-code-model-router claude
 ```
-- 使用第三方 AI 模型（DeepSeek, GLM-5, Qwen3.5, KAT-Coder 等）
+- 使用第三方 AI 模型（DeepSeek V4, GLM-5.1, Qwen3.5, Kimi K2.6, MiMo V2.5 等）
 - 按 API 使用量付费
 - 配置存储在 `~/.claude-gateway/`
 
@@ -235,20 +243,24 @@ npx claude-code-model-router claude
 
 ```bash
 # 使用短名称（向后兼容）
-/model deepseek   # 切换到 DeepSeek V3.2
+/model deepseek   # 切换到 DeepSeek V4 Pro
 /model qwen       # 切换到 Qwen3.5 Plus
-/model glm        # 切换到 GLM-5
-/model kimi       # 切换到 Kimi K2.5
+/model glm        # 切换到 GLM-5.1
+/model kimi       # 切换到 Kimi K2.6
 /model minimax    # 切换到 MiniMax M2.7
-/model kat        # 切换到 KAT-Coder-Pro V2
+/model mimo       # 切换到 MiMo V2.5
 
 # 使用版本别名（明确指定版本）
-/model deepseek-v3.2   # DeepSeek V3.2
-/model glm-5           # GLM-5
-/model minimax-m2.7    # MiniMax M2.7
-/model kimi-k2.5       # Kimi K2.5
-/model qwen3.5-plus    # Qwen3.5 Plus
-/model kat-coder       # KAT-Coder-Pro V2
+/model deepseek-v4-pro           # DeepSeek V4 Pro
+/model deepseek-v4-flash         # DeepSeek V4 Flash
+/model glm-5.1                   # GLM-5.1
+/model minimax-m2.7              # MiniMax M2.7
+/model minimax-m2.7-highspeed    # MiniMax M2.7 Highspeed
+/model kimi-k2.6                 # Kimi K2.6
+/model qwen3.5-plus              # Qwen3.5 Plus
+/model qwen3.5-flash             # Qwen3.5 Flash
+/model qwen3-max                 # Qwen3 Max
+/model mimo-v2.5                 # MiMo V2.5
 ```
 
 **重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！
@@ -298,6 +310,16 @@ npx claude-code-model-router start --port 9000
 3. 运行 `npx claude-code-model-router models` 查看状态
 
 ## 更新日志
+
+### v1.3.0
+- 新增供应商级 `providers -> variants` 配置结构，并兼容旧版平铺 `models` 配置
+- 移除 KAT-Coder-Pro V2
+- DeepSeek 更新为 DeepSeek V4 Pro / V4 Flash，并更新 Anthropic API 配置
+- Kimi 更新为 Kimi K2.6
+- GLM 更新为 GLM-5.1
+- MiniMax 新增 MiniMax M2.7 Highspeed
+- Qwen 新增 Qwen3.5 Flash 和 Qwen3 Max
+- 新增 MiMo V2.5
 
 ### v1.2.0
 - 更新 GLM 模型至 GLM-5 版本

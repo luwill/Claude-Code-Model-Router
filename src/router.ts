@@ -72,10 +72,14 @@ export class ModelRouter {
   }
 
   buildHeaders(route: RouteInfo, originalHeaders: Record<string, string>): Record<string, string> {
+    const authHeader = route.config.auth_header || 'x-api-key';
+    const authType =
+      route.config.auth_type || (authHeader.toLowerCase() === 'authorization' ? 'bearer' : 'api_key');
+    const authValue = authType === 'bearer' ? `Bearer ${route.apiKey}` : route.apiKey;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      [route.config.auth_header || 'x-api-key']: route.apiKey,
+      [authHeader]: authValue,
     };
 
     // Add Anthropic-specific headers for Anthropic provider

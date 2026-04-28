@@ -11,6 +11,9 @@ export { ModelRouter, RouterError } from './router.js';
 export { createServer, startServer } from './server.js';
 export type {
   ModelConfig,
+  ProviderConfig,
+  ModelVariantConfig,
+  AuthType,
   GatewayConfig,
   RouterConfig,
   MessagesRequest,
