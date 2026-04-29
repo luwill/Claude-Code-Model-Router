@@ -129,13 +129,19 @@ ccmr claude --print --output-format json "你的问题"
 | `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
 | `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
 | `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot |
-| `minimax-m2.7` | `minimax`, `minimax-m2`, `mm` | MiniMax M2.7 | MiniMax |
-| `minimax-m2.7-highspeed` | `minimax-highspeed` | MiniMax M2.7 Highspeed | MiniMax |
+| `minimax-m2.7` | `minimax`, `minimax-cn`, `minimax-m2`, `mm` | MiniMax M2.7 | MiniMax CN |
+| `minimax-m2.7-highspeed` | `minimax-highspeed`, `minimax-cn-highspeed` | MiniMax M2.7 Highspeed | MiniMax CN |
+| `minimax-global-m2.7` | `minimax-global`, `minimax-io` | MiniMax M2.7 | MiniMax Global |
+| `minimax-global-m2.7-highspeed` | `minimax-global-highspeed` | MiniMax M2.7 Highspeed | MiniMax Global |
 | `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
 | `qwen3.5-flash` | - | Qwen3.5 Flash | 阿里云 |
 | `qwen3-max` | - | Qwen3 Max | 阿里云 |
 | `glm-5.1` | `glm`, `glm-5`, `zhipu`, `chatglm` | GLM-5.1 | 智谱 AI |
-| `mimo-v2.5` | `mimo`, `mimo-v2`, `xiaomi` | MiMo V2.5 | Xiaomi MiMo |
+| `mimo-v2.5-pro` | `mimo`, `mimo-pro`, `mimo-token-sgp`, `xiaomi` | MiMo V2.5 Pro | MiMo Token Plan SGP |
+| `mimo-v2.5` | `mimo-v2` | MiMo V2.5 | MiMo Token Plan SGP |
+| `mimo-token-cn-v2.5-pro` | `mimo-token-cn`, `mimo-cn` | MiMo V2.5 Pro | MiMo Token Plan CN |
+| `mimo-token-ams-v2.5-pro` | `mimo-token-ams`, `mimo-ams` | MiMo V2.5 Pro | MiMo Token Plan AMS |
+| `mimo-payg-v2.5-pro` | `mimo-payg`, `mimo-payg-pro` | MiMo V2.5 Pro | MiMo Pay-as-you-go |
 
 ### 模型参数
 
@@ -144,12 +150,13 @@ ccmr claude --print --output-format json "你的问题"
 | DeepSeek V4 Pro | 1M | 384K |
 | DeepSeek V4 Flash | 1M | 384K |
 | Kimi K2.6 | 256K | 32K |
-| MiniMax M2.7 | 200K | 192K |
-| MiniMax M2.7 Highspeed | 200K | 192K |
+| MiniMax M2.7 (CN / Global) | 200K | 192K |
+| MiniMax M2.7 Highspeed (CN / Global) | 200K | 192K |
 | Qwen3.5 Plus | 1M | 64K |
 | Qwen3.5 Flash | 1M | 64K |
 | Qwen3 Max | 1M | 64K |
 | GLM-5.1 | 200K | 128K |
+| MiMo V2.5 Pro | 1M | 128K |
 | MiMo V2.5 | 1M | 128K |
 
 ## 配置
@@ -159,11 +166,17 @@ ccmr claude --print --output-format json "你的问题"
 ```bash
 DEEPSEEK_API_KEY=sk-xxx    # https://platform.deepseek.com/
 KIMI_API_KEY=sk-xxx        # https://platform.kimi.ai/
-MINIMAX_API_KEY=xxx        # https://platform.minimax.io/
+MINIMAX_API_KEY=xxx        # MiniMax CN / Token Plan: https://platform.minimaxi.com/
+MINIMAX_GLOBAL_API_KEY=xxx # MiniMax Global: https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
 GLM_API_KEY=xxx            # https://open.bigmodel.cn/
-MIMO_API_KEY=sk-xxx        # https://platform.xiaomimimo.com/
+MIMO_API_KEY=tp-xxx        # MiMo Token Plan，默认 SGP 集群
+MIMO_TOKEN_CN_API_KEY=tp-xxx  # MiMo Token Plan CN 集群
+MIMO_TOKEN_AMS_API_KEY=tp-xxx # MiMo Token Plan AMS 集群
+MIMO_PAYG_API_KEY=sk-xxx   # MiMo Pay-as-you-go: https://platform.xiaomimimo.com/
 ```
+
+MiMo Token Plan 的 Base URL 与购买套餐所在集群绑定。默认 `mimo` 使用 SGP 集群；如果订阅页显示 CN 或 AMS 集群，请分别配置 `MIMO_TOKEN_CN_API_KEY` / `MIMO_TOKEN_AMS_API_KEY`，并使用 `mimo-token-cn` 或 `mimo-token-ams`。`tp-*` Token Plan Key 不能用于按量付费接口，`sk-*` 按量付费 Key 也不能用于 Token Plan 接口。
 
 ### 配置文件 (models.yaml)
 
@@ -247,8 +260,11 @@ npx claude-code-model-router claude
 /model qwen       # 切换到 Qwen3.5 Plus
 /model glm        # 切换到 GLM-5.1
 /model kimi       # 切换到 Kimi K2.6
-/model minimax    # 切换到 MiniMax M2.7
-/model mimo       # 切换到 MiMo V2.5
+/model minimax    # 切换到 MiniMax M2.7（国内 Token Plan）
+/model minimax-global # 切换到 MiniMax M2.7（海外）
+/model mimo       # 切换到 MiMo V2.5 Pro（Token Plan SGP）
+/model mimo-token-cn  # 切换到 MiMo V2.5 Pro（Token Plan CN）
+/model mimo-payg      # 切换到 MiMo V2.5 Pro（按量付费）
 
 # 使用版本别名（明确指定版本）
 /model deepseek-v4-pro           # DeepSeek V4 Pro
@@ -256,11 +272,15 @@ npx claude-code-model-router claude
 /model glm-5.1                   # GLM-5.1
 /model minimax-m2.7              # MiniMax M2.7
 /model minimax-m2.7-highspeed    # MiniMax M2.7 Highspeed
+/model minimax-global-m2.7       # MiniMax M2.7 Global
+/model minimax-global-m2.7-highspeed # MiniMax M2.7 Highspeed Global
 /model kimi-k2.6                 # Kimi K2.6
 /model qwen3.5-plus              # Qwen3.5 Plus
 /model qwen3.5-flash             # Qwen3.5 Flash
 /model qwen3-max                 # Qwen3 Max
+/model mimo-v2.5-pro             # MiMo V2.5 Pro
 /model mimo-v2.5                 # MiMo V2.5
+/model mimo-token-ams-v2.5-pro   # MiMo V2.5 Pro Token Plan AMS
 ```
 
 **重要：** 两个模式的配置完全独立，在网关模式切换模型不会影响官方模式！
@@ -310,6 +330,11 @@ npx claude-code-model-router start --port 9000
 3. 运行 `npx claude-code-model-router models` 查看状态
 
 ## 更新日志
+
+### v1.3.1
+- MiniMax 默认端点切换为国内 Token Plan 兼容的 `https://api.minimaxi.com/anthropic`
+- 新增 MiniMax Global 入口，海外 API Key 可使用 `MINIMAX_GLOBAL_API_KEY` 和 `minimax-global-*` 模型
+- MiMo 默认切换为 Claude Code 文档推荐的 `mimo-v2.5-pro`，并区分 Token Plan 集群与 Pay-as-you-go API
 
 ### v1.3.0
 - 新增供应商级 `providers -> variants` 配置结构，并兼容旧版平铺 `models` 配置

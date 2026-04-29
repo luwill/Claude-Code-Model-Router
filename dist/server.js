@@ -36,7 +36,7 @@ function createServer(configManager) {
         }
         res.json({
             status: 'healthy',
-            version: '1.3.0',
+            version: '1.3.1',
             default_model: config.default_model,
             models,
         });

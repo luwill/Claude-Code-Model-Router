@@ -12,7 +12,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const config_js_1 = require("./config.js");
 const server_js_1 = require("./server.js");
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 commander_1.program
     .name('ccmr')
     .description('Claude Code Model Router - A lightweight API gateway for multi-model switching')
@@ -97,12 +97,19 @@ commander_1.program
         console.log('');
         console.log('Available models:');
         console.log('');
-        for (const [name, info] of Object.entries(models)) {
+        const modelEntries = Object.entries(models);
+        const nameWidth = Math.max(28, ...modelEntries.map(([name]) => name.length + 2));
+        const displayWidth = Math.max(26, ...modelEntries.map(([, info]) => info.displayName.length + 2));
+        const providerWidth = Math.max(24, ...modelEntries.map(([, info]) => {
+            const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
+            return provider.length + 2;
+        }));
+        for (const [name, info] of modelEntries) {
             const status = info.available
                 ? '\x1b[32m[Ready]\x1b[0m'
                 : '\x1b[33m[No API Key]\x1b[0m';
             const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
-            console.log(`  ${name.padEnd(28)} ${info.displayName.padEnd(26)} ${provider.padEnd(24)} ${status}`);
+            console.log(`  ${name.padEnd(nameWidth)} ${info.displayName.padEnd(displayWidth)} ${provider.padEnd(providerWidth)} ${status}`);
         }
         console.log('');
         console.log('Aliases:');

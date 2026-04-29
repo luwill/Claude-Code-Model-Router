@@ -59,9 +59,9 @@ const DEFAULT_CONFIG: RouterConfig = {
       },
     },
     minimax: {
-      display_name: 'MiniMax',
-      provider: 'minimax',
-      base_url: 'https://api.minimax.io/anthropic',
+      display_name: 'MiniMax CN',
+      provider: 'minimax-cn',
+      base_url: 'https://api.minimaxi.com/anthropic',
       api_key_env: 'MINIMAX_API_KEY',
       auth_header: 'Authorization',
       auth_type: 'bearer',
@@ -77,6 +77,31 @@ const DEFAULT_CONFIG: RouterConfig = {
         },
         'm2.7-highspeed': {
           display_name: 'MiniMax M2.7 Highspeed',
+          model_id: 'MiniMax-M2.7-highspeed',
+          max_tokens: 196608,
+          context_window: 204800,
+        },
+      },
+    },
+    'minimax-global': {
+      display_name: 'MiniMax Global',
+      provider: 'minimax-global',
+      base_url: 'https://api.minimax.io/anthropic',
+      api_key_env: 'MINIMAX_GLOBAL_API_KEY',
+      auth_header: 'Authorization',
+      auth_type: 'bearer',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: 'm2.7',
+      variants: {
+        'm2.7': {
+          display_name: 'MiniMax M2.7 (Global)',
+          model_id: 'MiniMax-M2.7',
+          max_tokens: 196608,
+          context_window: 204800,
+        },
+        'm2.7-highspeed': {
+          display_name: 'MiniMax M2.7 Highspeed (Global)',
           model_id: 'MiniMax-M2.7-highspeed',
           max_tokens: 196608,
           context_window: 204800,
@@ -137,18 +162,99 @@ const DEFAULT_CONFIG: RouterConfig = {
       },
     },
     mimo: {
-      display_name: 'MiMo',
-      provider: 'xiaomi',
-      base_url: 'https://api.xiaomimimo.com/anthropic',
+      display_name: 'MiMo Token Plan SGP',
+      provider: 'xiaomi-token-sgp',
+      base_url: 'https://token-plan-sgp.xiaomimimo.com/anthropic',
       api_key_env: 'MIMO_API_KEY',
       auth_header: 'api-key',
       auth_type: 'api_key',
       supports_streaming: true,
       supports_tools: true,
-      default_variant: 'v2.5',
+      default_variant: 'v2.5-pro',
       variants: {
+        'v2.5-pro': {
+          display_name: 'MiMo V2.5 Pro',
+          model_id: 'mimo-v2.5-pro',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
         'v2.5': {
           display_name: 'MiMo V2.5',
+          model_id: 'mimo-v2.5',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+      },
+    },
+    'mimo-token-cn': {
+      display_name: 'MiMo Token Plan CN',
+      provider: 'xiaomi-token-cn',
+      base_url: 'https://token-plan-cn.xiaomimimo.com/anthropic',
+      api_key_env: 'MIMO_TOKEN_CN_API_KEY',
+      auth_header: 'api-key',
+      auth_type: 'api_key',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: 'v2.5-pro',
+      variants: {
+        'v2.5-pro': {
+          display_name: 'MiMo V2.5 Pro (CN)',
+          model_id: 'mimo-v2.5-pro',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+        'v2.5': {
+          display_name: 'MiMo V2.5 (CN)',
+          model_id: 'mimo-v2.5',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+      },
+    },
+    'mimo-token-ams': {
+      display_name: 'MiMo Token Plan AMS',
+      provider: 'xiaomi-token-ams',
+      base_url: 'https://token-plan-ams.xiaomimimo.com/anthropic',
+      api_key_env: 'MIMO_TOKEN_AMS_API_KEY',
+      auth_header: 'api-key',
+      auth_type: 'api_key',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: 'v2.5-pro',
+      variants: {
+        'v2.5-pro': {
+          display_name: 'MiMo V2.5 Pro (AMS)',
+          model_id: 'mimo-v2.5-pro',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+        'v2.5': {
+          display_name: 'MiMo V2.5 (AMS)',
+          model_id: 'mimo-v2.5',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+      },
+    },
+    'mimo-payg': {
+      display_name: 'MiMo Pay-as-you-go',
+      provider: 'xiaomi-payg',
+      base_url: 'https://api.xiaomimimo.com/anthropic',
+      api_key_env: 'MIMO_PAYG_API_KEY',
+      auth_header: 'api-key',
+      auth_type: 'api_key',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: 'v2.5-pro',
+      variants: {
+        'v2.5-pro': {
+          display_name: 'MiMo V2.5 Pro (Pay-as-you-go)',
+          model_id: 'mimo-v2.5-pro',
+          max_tokens: 131072,
+          context_window: 1048576,
+        },
+        'v2.5': {
+          display_name: 'MiMo V2.5 (Pay-as-you-go)',
           model_id: 'mimo-v2.5',
           max_tokens: 131072,
           context_window: 1048576,
@@ -169,8 +275,14 @@ const DEFAULT_CONFIG: RouterConfig = {
     'kimi-k2.6': 'kimi-k2.6',
     moonshot: 'kimi-k2.6',
     minimax: 'minimax-m2.7',
+    'minimax-cn': 'minimax-m2.7',
     'minimax-m2': 'minimax-m2.7',
     'minimax-highspeed': 'minimax-m2.7-highspeed',
+    'minimax-cn-highspeed': 'minimax-m2.7-highspeed',
+    minimaxi: 'minimax-m2.7',
+    'minimax-global': 'minimax-global-m2.7',
+    'minimax-io': 'minimax-global-m2.7',
+    'minimax-global-highspeed': 'minimax-global-m2.7-highspeed',
     mm: 'minimax-m2.7',
     qwen: 'qwen3.5-plus',
     'qwen3.5': 'qwen3.5-plus',
@@ -179,10 +291,24 @@ const DEFAULT_CONFIG: RouterConfig = {
     'glm-5': 'glm-5.1',
     zhipu: 'glm-5.1',
     chatglm: 'glm-5.1',
-    mimo: 'mimo-v2.5',
+    mimo: 'mimo-v2.5-pro',
+    'mimo-pro': 'mimo-v2.5-pro',
+    'mimo-token': 'mimo-v2.5-pro',
+    'mimo-token-sgp': 'mimo-v2.5-pro',
+    'mimo-sgp': 'mimo-v2.5-pro',
     'mimo-v2': 'mimo-v2.5',
     'mimo-v2.5': 'mimo-v2.5',
-    xiaomi: 'mimo-v2.5',
+    'mimo-v2.5-pro': 'mimo-v2.5-pro',
+    'mimo-token-cn': 'mimo-token-cn-v2.5-pro',
+    'mimo-cn': 'mimo-token-cn-v2.5-pro',
+    'mimo-token-cn-v2.5': 'mimo-token-cn-v2.5',
+    'mimo-token-ams': 'mimo-token-ams-v2.5-pro',
+    'mimo-ams': 'mimo-token-ams-v2.5-pro',
+    'mimo-token-ams-v2.5': 'mimo-token-ams-v2.5',
+    'mimo-payg': 'mimo-payg-v2.5-pro',
+    'mimo-payg-pro': 'mimo-payg-v2.5-pro',
+    'mimo-payg-v2.5': 'mimo-payg-v2.5',
+    xiaomi: 'mimo-v2.5-pro',
   },
   gateway: {
     host: '0.0.0.0',
@@ -414,9 +540,9 @@ providers:
         context_window: 262144
 
   minimax:
-    display_name: MiniMax
-    provider: minimax
-    base_url: https://api.minimax.io/anthropic
+    display_name: MiniMax CN
+    provider: minimax-cn
+    base_url: https://api.minimaxi.com/anthropic
     api_key_env: MINIMAX_API_KEY
     auth_header: Authorization
     auth_type: bearer
@@ -429,6 +555,26 @@ providers:
         context_window: 204800
       m2.7-highspeed:
         display_name: "MiniMax M2.7 Highspeed"
+        model_id: MiniMax-M2.7-highspeed
+        max_tokens: 196608
+        context_window: 204800
+
+  minimax-global:
+    display_name: MiniMax Global
+    provider: minimax-global
+    base_url: https://api.minimax.io/anthropic
+    api_key_env: MINIMAX_GLOBAL_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: m2.7
+    variants:
+      m2.7:
+        display_name: "MiniMax M2.7 (Global)"
+        model_id: MiniMax-M2.7
+        max_tokens: 196608
+        context_window: 204800
+      m2.7-highspeed:
+        display_name: "MiniMax M2.7 Highspeed (Global)"
         model_id: MiniMax-M2.7-highspeed
         max_tokens: 196608
         context_window: 204800
@@ -477,16 +623,81 @@ providers:
         context_window: 204800
 
   mimo:
-    display_name: MiMo
-    provider: xiaomi
-    base_url: https://api.xiaomimimo.com/anthropic
+    display_name: MiMo Token Plan SGP
+    provider: xiaomi-token-sgp
+    base_url: https://token-plan-sgp.xiaomimimo.com/anthropic
     api_key_env: MIMO_API_KEY
     auth_header: api-key
     auth_type: api_key
-    default_variant: v2.5
+    default_variant: v2.5-pro
     variants:
+      v2.5-pro:
+        display_name: "MiMo V2.5 Pro"
+        model_id: mimo-v2.5-pro
+        max_tokens: 131072
+        context_window: 1048576
       v2.5:
         display_name: "MiMo V2.5"
+        model_id: mimo-v2.5
+        max_tokens: 131072
+        context_window: 1048576
+
+  mimo-token-cn:
+    display_name: MiMo Token Plan CN
+    provider: xiaomi-token-cn
+    base_url: https://token-plan-cn.xiaomimimo.com/anthropic
+    api_key_env: MIMO_TOKEN_CN_API_KEY
+    auth_header: api-key
+    auth_type: api_key
+    default_variant: v2.5-pro
+    variants:
+      v2.5-pro:
+        display_name: "MiMo V2.5 Pro (CN)"
+        model_id: mimo-v2.5-pro
+        max_tokens: 131072
+        context_window: 1048576
+      v2.5:
+        display_name: "MiMo V2.5 (CN)"
+        model_id: mimo-v2.5
+        max_tokens: 131072
+        context_window: 1048576
+
+  mimo-token-ams:
+    display_name: MiMo Token Plan AMS
+    provider: xiaomi-token-ams
+    base_url: https://token-plan-ams.xiaomimimo.com/anthropic
+    api_key_env: MIMO_TOKEN_AMS_API_KEY
+    auth_header: api-key
+    auth_type: api_key
+    default_variant: v2.5-pro
+    variants:
+      v2.5-pro:
+        display_name: "MiMo V2.5 Pro (AMS)"
+        model_id: mimo-v2.5-pro
+        max_tokens: 131072
+        context_window: 1048576
+      v2.5:
+        display_name: "MiMo V2.5 (AMS)"
+        model_id: mimo-v2.5
+        max_tokens: 131072
+        context_window: 1048576
+
+  mimo-payg:
+    display_name: MiMo Pay-as-you-go
+    provider: xiaomi-payg
+    base_url: https://api.xiaomimimo.com/anthropic
+    api_key_env: MIMO_PAYG_API_KEY
+    auth_header: api-key
+    auth_type: api_key
+    default_variant: v2.5-pro
+    variants:
+      v2.5-pro:
+        display_name: "MiMo V2.5 Pro (Pay-as-you-go)"
+        model_id: mimo-v2.5-pro
+        max_tokens: 131072
+        context_window: 1048576
+      v2.5:
+        display_name: "MiMo V2.5 (Pay-as-you-go)"
         model_id: mimo-v2.5
         max_tokens: 131072
         context_window: 1048576
@@ -502,8 +713,14 @@ aliases:
   kimi-k2: kimi-k2.6
   moonshot: kimi-k2.6
   minimax: minimax-m2.7
+  minimax-cn: minimax-m2.7
   minimax-m2: minimax-m2.7
   minimax-highspeed: minimax-m2.7-highspeed
+  minimax-cn-highspeed: minimax-m2.7-highspeed
+  minimaxi: minimax-m2.7
+  minimax-global: minimax-global-m2.7
+  minimax-io: minimax-global-m2.7
+  minimax-global-highspeed: minimax-global-m2.7-highspeed
   mm: minimax-m2.7
   qwen: qwen3.5-plus
   qwen3.5: qwen3.5-plus
@@ -512,10 +729,24 @@ aliases:
   glm-5: glm-5.1
   zhipu: glm-5.1
   chatglm: glm-5.1
-  mimo: mimo-v2.5
+  mimo: mimo-v2.5-pro
+  mimo-pro: mimo-v2.5-pro
+  mimo-token: mimo-v2.5-pro
+  mimo-token-sgp: mimo-v2.5-pro
+  mimo-sgp: mimo-v2.5-pro
   mimo-v2: mimo-v2.5
   mimo-v2.5: mimo-v2.5
-  xiaomi: mimo-v2.5
+  mimo-v2.5-pro: mimo-v2.5-pro
+  mimo-token-cn: mimo-token-cn-v2.5-pro
+  mimo-cn: mimo-token-cn-v2.5-pro
+  mimo-token-cn-v2.5: mimo-token-cn-v2.5
+  mimo-token-ams: mimo-token-ams-v2.5-pro
+  mimo-ams: mimo-token-ams-v2.5-pro
+  mimo-token-ams-v2.5: mimo-token-ams-v2.5
+  mimo-payg: mimo-payg-v2.5-pro
+  mimo-payg-pro: mimo-payg-v2.5-pro
+  mimo-payg-v2.5: mimo-payg-v2.5
+  xiaomi: mimo-v2.5-pro
 
 gateway:
   port: 8080
@@ -533,8 +764,11 @@ DEEPSEEK_API_KEY=
 # Kimi / Moonshot - https://platform.kimi.ai/
 KIMI_API_KEY=
 
-# MiniMax - https://platform.minimax.io/
+# MiniMax CN / Token Plan - https://platform.minimaxi.com/
 MINIMAX_API_KEY=
+
+# MiniMax Global - https://platform.minimax.io/
+MINIMAX_GLOBAL_API_KEY=
 
 # Qwen - https://dashscope.console.aliyun.com/
 QWEN_API_KEY=
@@ -542,7 +776,14 @@ QWEN_API_KEY=
 # GLM - https://open.bigmodel.cn/
 GLM_API_KEY=
 
-# MiMo - https://platform.xiaomimimo.com/
+# MiMo Token Plan (tp-*) - default SGP cluster
 MIMO_API_KEY=
+
+# MiMo Token Plan CN / AMS clusters (tp-*)
+MIMO_TOKEN_CN_API_KEY=
+MIMO_TOKEN_AMS_API_KEY=
+
+# MiMo Pay-as-you-go (sk-*) - https://platform.xiaomimimo.com/
+MIMO_PAYG_API_KEY=
 `;
 }
