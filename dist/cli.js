@@ -12,11 +12,11 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const config_js_1 = require("./config.js");
 const server_js_1 = require("./server.js");
-const VERSION = '1.3.1';
+const version_js_1 = require("./version.js");
 commander_1.program
     .name('ccmr')
     .description('Claude Code Model Router - A lightweight API gateway for multi-model switching')
-    .version(VERSION);
+    .version(version_js_1.VERSION);
 // Start command
 commander_1.program
     .command('start')
@@ -266,7 +266,7 @@ commander_1.program.parse();
 // Show help if no command provided
 if (!process.argv.slice(2).length) {
     console.log('');
-    console.log('Claude Code Model Router v' + VERSION);
+    console.log('Claude Code Model Router v' + version_js_1.VERSION);
     console.log('');
     console.log('Quick Start:');
     console.log('  1. npx claude-code-model-router init     # Create config files');

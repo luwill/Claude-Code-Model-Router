@@ -9,8 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
 import { startServer } from './server.js';
-
-const VERSION = '1.3.1';
+import { VERSION } from './version.js';
 
 program
   .name('ccmr')

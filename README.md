@@ -348,6 +348,9 @@ DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Co
 
 ## 更新日志
 
+### v1.3.3
+- CLI 和健康检查版本号改为从 `package.json` 读取，避免发布后显示旧版本
+
 ### v1.3.1
 - MiniMax 默认端点切换为国内 Token Plan 兼容的 `https://api.minimaxi.com/anthropic`
 - 新增 MiniMax Global 入口，海外 API Key 可使用 `MINIMAX_GLOBAL_API_KEY` 和 `minimax-global-*` 模型
