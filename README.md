@@ -122,6 +122,15 @@ ccmr claude --print --output-format json "你的问题"
 
 > **提示：** 任何 Claude Code 原生支持的参数都可以直接传递给 `ccmr claude`
 
+`ccmr claude` 会为网关模式自动注入独立环境变量：
+
+- `CLAUDE_CONFIG_DIR=~/.claude-gateway`
+- `ANTHROPIC_BASE_URL=http://127.0.0.1:<gateway-port>`
+- `ANTHROPIC_AUTH_TOKEN=ccmr-local-gateway`
+- `ANTHROPIC_MODEL` 和 Claude 默认模型变量会指向当前 `default_model`
+
+这些变量只作用于 `ccmr claude` 启动的 Claude Code 子进程，不会修改你的官方 Claude Code 配置，也不会影响直接运行 `claude` 的官方订阅模式。
+
 ## 支持的模型
 
 | 短名称 | 版本别名 | 模型 | 提供商 |
@@ -329,12 +338,17 @@ npx claude-code-model-router start --port 9000
 2. 确认账户有余额
 3. 运行 `npx claude-code-model-router models` 查看状态
 
+### 网关模式提示地区不支持
+
+请确认是用 `npx claude-code-model-router claude` 或 `ccmr claude` 启动第三方模型模式，而不是直接运行 `claude`。网关模式会自动设置本地 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN` 和默认模型，避免 Claude Code 走官方 Anthropic 登录/地区检查路径。
+
 ## 更新日志
 
 ### v1.3.1
 - MiniMax 默认端点切换为国内 Token Plan 兼容的 `https://api.minimaxi.com/anthropic`
 - 新增 MiniMax Global 入口，海外 API Key 可使用 `MINIMAX_GLOBAL_API_KEY` 和 `minimax-global-*` 模型
 - MiMo 默认切换为 Claude Code 文档推荐的 `mimo-v2.5-pro`，并区分 Token Plan 集群与 Pay-as-you-go API
+- `ccmr claude` 自动注入本地网关认证 token 和默认模型，避免误走官方 Claude Code 地区检查
 
 ### v1.3.0
 - 新增供应商级 `providers -> variants` 配置结构，并兼容旧版平铺 `models` 配置

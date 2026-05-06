@@ -178,12 +178,19 @@ program
 
     const homeDir = os.homedir();
     const gatewayPort = options.gatewayPort || '8080';
+    const configManager = new ConfigManager();
+    const defaultModel = options.model || configManager.getConfig().default_model;
 
     // Set up environment for gateway
     const env = {
       ...process.env,
       CLAUDE_CONFIG_DIR: path.join(homeDir, '.claude-gateway'),
-      ANTHROPIC_BASE_URL: `http://localhost:${gatewayPort}`,
+      ANTHROPIC_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
+      ANTHROPIC_AUTH_TOKEN: process.env.CCMR_AUTH_TOKEN || 'ccmr-local-gateway',
+      ANTHROPIC_MODEL: defaultModel,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: defaultModel,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: defaultModel,
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: defaultModel,
     };
 
     // Build Claude Code arguments
@@ -254,7 +261,7 @@ program
     const child = spawn('claude', claudeArgs, {
       stdio: 'inherit',
       env,
-      shell: true,
+      shell: process.platform === 'win32',
     });
 
     child.on('error', (error) => {
