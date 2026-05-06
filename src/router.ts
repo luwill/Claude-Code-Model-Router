@@ -105,7 +105,22 @@ export class ModelRouter {
       body.max_tokens = maxTokens;
     }
 
+    this.normalizeProviderRequestBody(body, modelConfig);
+
     return body;
+  }
+
+  private normalizeProviderRequestBody(body: Record<string, unknown>, modelConfig: ModelConfig): void {
+    if (modelConfig.provider === 'deepseek') {
+      this.normalizeDeepSeekRequestBody(body);
+    }
+  }
+
+  private normalizeDeepSeekRequestBody(body: Record<string, unknown>): void {
+    // DeepSeek documents Anthropic `metadata` as ignored, but the endpoint can still
+    // reject Claude Code session metadata when `user_id` contains unsupported chars.
+    delete body.metadata;
+    delete body.user_id;
   }
 
   buildUrl(modelConfig: ModelConfig, endpoint = '/v1/messages'): string {

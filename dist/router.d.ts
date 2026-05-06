@@ -15,6 +15,8 @@ export declare class ModelRouter {
     resolveRoute(modelName: string): RouteInfo;
     buildHeaders(route: RouteInfo, originalHeaders: Record<string, string>): Record<string, string>;
     buildRequestBody(request: MessagesRequest, modelConfig: ModelConfig): Record<string, unknown>;
+    private normalizeProviderRequestBody;
+    private normalizeDeepSeekRequestBody;
     buildUrl(modelConfig: ModelConfig, endpoint?: string): string;
     forwardRequest(request: MessagesRequest, originalHeaders: Record<string, string>): Promise<MessagesResponse>;
     forwardStream(request: MessagesRequest, originalHeaders: Record<string, string>): AsyncGenerator<string>;

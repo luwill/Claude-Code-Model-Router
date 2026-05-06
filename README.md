@@ -342,6 +342,10 @@ npx claude-code-model-router start --port 9000
 
 请确认是用 `npx claude-code-model-router claude` 或 `ccmr claude` 启动第三方模型模式，而不是直接运行 `claude`。网关模式会自动设置本地 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN` 和默认模型，避免 Claude Code 走官方 Anthropic 登录/地区检查路径。
 
+### DeepSeek 报 `Invalid user_id`
+
+DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
+
 ## 更新日志
 
 ### v1.3.1
@@ -349,6 +353,7 @@ npx claude-code-model-router start --port 9000
 - 新增 MiniMax Global 入口，海外 API Key 可使用 `MINIMAX_GLOBAL_API_KEY` 和 `minimax-global-*` 模型
 - MiMo 默认切换为 Claude Code 文档推荐的 `mimo-v2.5-pro`，并区分 Token Plan 集群与 Pay-as-you-go API
 - `ccmr claude` 自动注入本地网关认证 token 和默认模型，避免误走官方 Claude Code 地区检查
+- DeepSeek 转发前移除 Claude Code 会话元数据，避免 `metadata.user_id` 格式触发上游 400 校验错误
 
 ### v1.3.0
 - 新增供应商级 `providers -> variants` 配置结构，并兼容旧版平铺 `models` 配置
