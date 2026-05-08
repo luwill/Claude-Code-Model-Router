@@ -445,6 +445,13 @@ class ConfigManager {
         const resolved = this.resolveModelName(modelName);
         return this.apiKeys.get(resolved);
     }
+    /**
+     * Re-read API keys from process.env. Call after process.env mutations
+     * (e.g. when a host process loads keys from a secret store at runtime).
+     */
+    reloadApiKeys() {
+        this.loadApiKeys();
+    }
     listModels() {
         const result = {};
         for (const [name, model] of Object.entries(this.config.models)) {

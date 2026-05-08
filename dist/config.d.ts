@@ -17,6 +17,11 @@ export declare class ConfigManager {
     getModel(name: string): ModelConfig | undefined;
     resolveModelName(name: string): string;
     getApiKey(modelName: string): string | undefined;
+    /**
+     * Re-read API keys from process.env. Call after process.env mutations
+     * (e.g. when a host process loads keys from a secret store at runtime).
+     */
+    reloadApiKeys(): void;
     listModels(): Record<string, {
         displayName: string;
         provider: string;

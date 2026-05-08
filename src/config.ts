@@ -470,6 +470,14 @@ export class ConfigManager {
     return this.apiKeys.get(resolved);
   }
 
+  /**
+   * Re-read API keys from process.env. Call after process.env mutations
+   * (e.g. when a host process loads keys from a secret store at runtime).
+   */
+  reloadApiKeys(): void {
+    this.loadApiKeys();
+  }
+
   listModels(): Record<
     string,
     { displayName: string; provider: string; variant?: string; available: boolean }

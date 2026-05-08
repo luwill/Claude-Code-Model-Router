@@ -17,6 +17,26 @@ function createServer(configManager) {
     const config = configManager.getConfig();
     // Middleware
     app.use(express_1.default.json({ limit: '50mb' }));
+    // Optional inbound auth: when CCMR_REQUIRED_AUTH_TOKEN is set, /v1/* requires it.
+    // /health is always reachable so liveness probes work without credentials.
+    const requiredToken = process.env.CCMR_REQUIRED_AUTH_TOKEN;
+    if (requiredToken && requiredToken.length > 0) {
+        app.use((req, res, next) => {
+            if (!req.path.startsWith('/v1/')) {
+                return next();
+            }
+            const raw = req.headers['x-api-key'] ?? req.headers.authorization ?? '';
+            const got = String(raw).replace(/^Bearer\s+/i, '').trim();
+            if (got !== requiredToken) {
+                res.status(401).json({
+                    type: 'error',
+                    error: { type: 'authentication_error', message: 'invalid CCMR auth token' },
+                });
+                return;
+            }
+            next();
+        });
+    }
     // Logging middleware
     if (config.gateway.enable_logging) {
         app.use((req, _res, next) => {
