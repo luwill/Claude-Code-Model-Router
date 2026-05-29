@@ -146,6 +146,8 @@ ccmr claude --print --output-format json "你的问题"
 | `qwen3.5-flash` | - | Qwen3.5 Flash | 阿里云 |
 | `qwen3-max` | - | Qwen3 Max | 阿里云 |
 | `glm-5.1` | `glm`, `glm-5`, `zhipu`, `chatglm` | GLM-5.1 | 智谱 AI |
+| `step-3.7-flash` | `step`, `step-3.7`, `stepfun` | Step 3.7 Flash | 阶跃星辰(按量付费) |
+| `step-plan-3.7-flash` | `step-plan`, `step-plan-3.7`, `stepplan` | Step 3.7 Flash (Step Plan) | 阶跃星辰(订阅) |
 | `mimo-v2.5-pro` | `mimo`, `mimo-pro`, `mimo-token-sgp`, `xiaomi` | MiMo V2.5 Pro | MiMo Token Plan SGP |
 | `mimo-v2.5` | `mimo-v2` | MiMo V2.5 | MiMo Token Plan SGP |
 | `mimo-token-cn-v2.5-pro` | `mimo-token-cn`, `mimo-cn` | MiMo V2.5 Pro | MiMo Token Plan CN |
@@ -165,6 +167,7 @@ ccmr claude --print --output-format json "你的问题"
 | Qwen3.5 Flash | 1M | 64K |
 | Qwen3 Max | 1M | 64K |
 | GLM-5.1 | 200K | 128K |
+| Step 3.7 Flash (按量付费 / Step Plan) | 256K | 384K |
 | MiMo V2.5 Pro | 1M | 128K |
 | MiMo V2.5 | 1M | 128K |
 
@@ -179,6 +182,8 @@ MINIMAX_API_KEY=xxx        # MiniMax CN / Token Plan: https://platform.minimaxi.
 MINIMAX_GLOBAL_API_KEY=xxx # MiniMax Global: https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
 GLM_API_KEY=xxx            # https://open.bigmodel.cn/
+STEP_API_KEY=xxx           # 阶跃星辰按量付费: https://platform.stepfun.com/
+STEP_PLAN_API_KEY=xxx      # 阶跃星辰 Step Plan 订阅: https://platform.stepfun.com/
 MIMO_API_KEY=tp-xxx        # MiMo Token Plan，默认 SGP 集群
 MIMO_TOKEN_CN_API_KEY=tp-xxx  # MiMo Token Plan CN 集群
 MIMO_TOKEN_AMS_API_KEY=tp-xxx # MiMo Token Plan AMS 集群
@@ -268,6 +273,8 @@ npx claude-code-model-router claude
 /model deepseek   # 切换到 DeepSeek V4 Pro
 /model qwen       # 切换到 Qwen3.5 Plus
 /model glm        # 切换到 GLM-5.1
+/model step       # 切换到 Step 3.7 Flash（按量付费）
+/model step-plan  # 切换到 Step 3.7 Flash（Step Plan 订阅）
 /model kimi       # 切换到 Kimi K2.6
 /model minimax    # 切换到 MiniMax M2.7（国内 Token Plan）
 /model minimax-global # 切换到 MiniMax M2.7（海外）
@@ -279,6 +286,8 @@ npx claude-code-model-router claude
 /model deepseek-v4-pro           # DeepSeek V4 Pro
 /model deepseek-v4-flash         # DeepSeek V4 Flash
 /model glm-5.1                   # GLM-5.1
+/model step-3.7-flash            # Step 3.7 Flash（按量付费）
+/model step-plan-3.7-flash       # Step 3.7 Flash（Step Plan 订阅）
 /model minimax-m2.7              # MiniMax M2.7
 /model minimax-m2.7-highspeed    # MiniMax M2.7 Highspeed
 /model minimax-global-m2.7       # MiniMax M2.7 Global

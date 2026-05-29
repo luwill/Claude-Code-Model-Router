@@ -161,6 +161,44 @@ const DEFAULT_CONFIG: RouterConfig = {
         },
       },
     },
+    step: {
+      display_name: 'StepFun',
+      provider: 'stepfun',
+      base_url: 'https://api.stepfun.com',
+      api_key_env: 'STEP_API_KEY',
+      auth_header: 'Authorization',
+      auth_type: 'bearer',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: '3.7-flash',
+      variants: {
+        '3.7-flash': {
+          display_name: 'Step 3.7 Flash',
+          model_id: 'step-3.7-flash',
+          max_tokens: 393216,
+          context_window: 262144,
+        },
+      },
+    },
+    'step-plan': {
+      display_name: 'StepFun Step Plan',
+      provider: 'stepfun-plan',
+      base_url: 'https://api.stepfun.com/step_plan',
+      api_key_env: 'STEP_PLAN_API_KEY',
+      auth_header: 'Authorization',
+      auth_type: 'bearer',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: '3.7-flash',
+      variants: {
+        '3.7-flash': {
+          display_name: 'Step 3.7 Flash (Step Plan)',
+          model_id: 'step-3.7-flash',
+          max_tokens: 393216,
+          context_window: 262144,
+        },
+      },
+    },
     mimo: {
       display_name: 'MiMo Token Plan SGP',
       provider: 'xiaomi-token-sgp',
@@ -291,6 +329,14 @@ const DEFAULT_CONFIG: RouterConfig = {
     'glm-5': 'glm-5.1',
     zhipu: 'glm-5.1',
     chatglm: 'glm-5.1',
+    step: 'step-3.7-flash',
+    'step-3.7': 'step-3.7-flash',
+    'step-3.7-flash': 'step-3.7-flash',
+    stepfun: 'step-3.7-flash',
+    'step-plan': 'step-plan-3.7-flash',
+    'step-plan-3.7': 'step-plan-3.7-flash',
+    'step-plan-3.7-flash': 'step-plan-3.7-flash',
+    stepplan: 'step-plan-3.7-flash',
     mimo: 'mimo-v2.5-pro',
     'mimo-pro': 'mimo-v2.5-pro',
     'mimo-token': 'mimo-v2.5-pro',
@@ -630,6 +676,36 @@ providers:
         max_tokens: 131072
         context_window: 204800
 
+  step:
+    display_name: StepFun
+    provider: stepfun
+    base_url: https://api.stepfun.com
+    api_key_env: STEP_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: 3.7-flash
+    variants:
+      3.7-flash:
+        display_name: "Step 3.7 Flash"
+        model_id: step-3.7-flash
+        max_tokens: 393216
+        context_window: 262144
+
+  step-plan:
+    display_name: StepFun Step Plan
+    provider: stepfun-plan
+    base_url: https://api.stepfun.com/step_plan
+    api_key_env: STEP_PLAN_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: 3.7-flash
+    variants:
+      3.7-flash:
+        display_name: "Step 3.7 Flash (Step Plan)"
+        model_id: step-3.7-flash
+        max_tokens: 393216
+        context_window: 262144
+
   mimo:
     display_name: MiMo Token Plan SGP
     provider: xiaomi-token-sgp
@@ -737,6 +813,14 @@ aliases:
   glm-5: glm-5.1
   zhipu: glm-5.1
   chatglm: glm-5.1
+  step: step-3.7-flash
+  step-3.7: step-3.7-flash
+  step-3.7-flash: step-3.7-flash
+  stepfun: step-3.7-flash
+  step-plan: step-plan-3.7-flash
+  step-plan-3.7: step-plan-3.7-flash
+  step-plan-3.7-flash: step-plan-3.7-flash
+  stepplan: step-plan-3.7-flash
   mimo: mimo-v2.5-pro
   mimo-pro: mimo-v2.5-pro
   mimo-token: mimo-v2.5-pro
@@ -783,6 +867,12 @@ QWEN_API_KEY=
 
 # GLM - https://open.bigmodel.cn/
 GLM_API_KEY=
+
+# StepFun (pay-as-you-go) - https://platform.stepfun.com/
+STEP_API_KEY=
+
+# StepFun Step Plan (subscription) - https://platform.stepfun.com/
+STEP_PLAN_API_KEY=
 
 # MiMo Token Plan (tp-*) - default SGP cluster
 MIMO_API_KEY=
