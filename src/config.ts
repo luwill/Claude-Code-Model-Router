@@ -67,19 +67,13 @@ const DEFAULT_CONFIG: RouterConfig = {
       auth_type: 'bearer',
       supports_streaming: true,
       supports_tools: true,
-      default_variant: 'm2.7',
+      default_variant: 'm3',
       variants: {
-        'm2.7': {
-          display_name: 'MiniMax M2.7',
-          model_id: 'MiniMax-M2.7',
-          max_tokens: 196608,
-          context_window: 204800,
-        },
-        'm2.7-highspeed': {
-          display_name: 'MiniMax M2.7 Highspeed',
-          model_id: 'MiniMax-M2.7-highspeed',
-          max_tokens: 196608,
-          context_window: 204800,
+        m3: {
+          display_name: 'MiniMax M3',
+          model_id: 'MiniMax-M3',
+          max_tokens: 131072,
+          context_window: 1048576,
         },
       },
     },
@@ -92,19 +86,13 @@ const DEFAULT_CONFIG: RouterConfig = {
       auth_type: 'bearer',
       supports_streaming: true,
       supports_tools: true,
-      default_variant: 'm2.7',
+      default_variant: 'm3',
       variants: {
-        'm2.7': {
-          display_name: 'MiniMax M2.7 (Global)',
-          model_id: 'MiniMax-M2.7',
-          max_tokens: 196608,
-          context_window: 204800,
-        },
-        'm2.7-highspeed': {
-          display_name: 'MiniMax M2.7 Highspeed (Global)',
-          model_id: 'MiniMax-M2.7-highspeed',
-          max_tokens: 196608,
-          context_window: 204800,
+        m3: {
+          display_name: 'MiniMax M3 (Global)',
+          model_id: 'MiniMax-M3',
+          max_tokens: 131072,
+          context_window: 1048576,
         },
       },
     },
@@ -312,16 +300,14 @@ const DEFAULT_CONFIG: RouterConfig = {
     'kimi-k2': 'kimi-k2.6',
     'kimi-k2.6': 'kimi-k2.6',
     moonshot: 'kimi-k2.6',
-    minimax: 'minimax-m2.7',
-    'minimax-cn': 'minimax-m2.7',
-    'minimax-m2': 'minimax-m2.7',
-    'minimax-highspeed': 'minimax-m2.7-highspeed',
-    'minimax-cn-highspeed': 'minimax-m2.7-highspeed',
-    minimaxi: 'minimax-m2.7',
-    'minimax-global': 'minimax-global-m2.7',
-    'minimax-io': 'minimax-global-m2.7',
-    'minimax-global-highspeed': 'minimax-global-m2.7-highspeed',
-    mm: 'minimax-m2.7',
+    minimax: 'minimax-m3',
+    'minimax-cn': 'minimax-m3',
+    'minimax-m3': 'minimax-m3',
+    minimaxi: 'minimax-m3',
+    'minimax-global': 'minimax-global-m3',
+    'minimax-io': 'minimax-global-m3',
+    'minimax-global-m3': 'minimax-global-m3',
+    mm: 'minimax-m3',
     qwen: 'qwen3.5-plus',
     'qwen3.5': 'qwen3.5-plus',
     tongyi: 'qwen3.5-plus',
@@ -600,18 +586,13 @@ providers:
     api_key_env: MINIMAX_API_KEY
     auth_header: Authorization
     auth_type: bearer
-    default_variant: m2.7
+    default_variant: m3
     variants:
-      m2.7:
-        display_name: "MiniMax M2.7"
-        model_id: MiniMax-M2.7
-        max_tokens: 196608
-        context_window: 204800
-      m2.7-highspeed:
-        display_name: "MiniMax M2.7 Highspeed"
-        model_id: MiniMax-M2.7-highspeed
-        max_tokens: 196608
-        context_window: 204800
+      m3:
+        display_name: "MiniMax M3"
+        model_id: MiniMax-M3
+        max_tokens: 131072
+        context_window: 1048576
 
   minimax-global:
     display_name: MiniMax Global
@@ -620,18 +601,13 @@ providers:
     api_key_env: MINIMAX_GLOBAL_API_KEY
     auth_header: Authorization
     auth_type: bearer
-    default_variant: m2.7
+    default_variant: m3
     variants:
-      m2.7:
-        display_name: "MiniMax M2.7 (Global)"
-        model_id: MiniMax-M2.7
-        max_tokens: 196608
-        context_window: 204800
-      m2.7-highspeed:
-        display_name: "MiniMax M2.7 Highspeed (Global)"
-        model_id: MiniMax-M2.7-highspeed
-        max_tokens: 196608
-        context_window: 204800
+      m3:
+        display_name: "MiniMax M3 (Global)"
+        model_id: MiniMax-M3
+        max_tokens: 131072
+        context_window: 1048576
 
   qwen:
     display_name: Qwen
@@ -796,16 +772,14 @@ aliases:
   kimi: kimi-k2.6
   kimi-k2: kimi-k2.6
   moonshot: kimi-k2.6
-  minimax: minimax-m2.7
-  minimax-cn: minimax-m2.7
-  minimax-m2: minimax-m2.7
-  minimax-highspeed: minimax-m2.7-highspeed
-  minimax-cn-highspeed: minimax-m2.7-highspeed
-  minimaxi: minimax-m2.7
-  minimax-global: minimax-global-m2.7
-  minimax-io: minimax-global-m2.7
-  minimax-global-highspeed: minimax-global-m2.7-highspeed
-  mm: minimax-m2.7
+  minimax: minimax-m3
+  minimax-cn: minimax-m3
+  minimax-m3: minimax-m3
+  minimaxi: minimax-m3
+  minimax-global: minimax-global-m3
+  minimax-io: minimax-global-m3
+  minimax-global-m3: minimax-global-m3
+  mm: minimax-m3
   qwen: qwen3.5-plus
   qwen3.5: qwen3.5-plus
   tongyi: qwen3.5-plus

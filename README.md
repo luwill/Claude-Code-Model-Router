@@ -138,10 +138,8 @@ ccmr claude --print --output-format json "你的问题"
 | `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
 | `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
 | `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot |
-| `minimax-m2.7` | `minimax`, `minimax-cn`, `minimax-m2`, `mm` | MiniMax M2.7 | MiniMax CN |
-| `minimax-m2.7-highspeed` | `minimax-highspeed`, `minimax-cn-highspeed` | MiniMax M2.7 Highspeed | MiniMax CN |
-| `minimax-global-m2.7` | `minimax-global`, `minimax-io` | MiniMax M2.7 | MiniMax Global |
-| `minimax-global-m2.7-highspeed` | `minimax-global-highspeed` | MiniMax M2.7 Highspeed | MiniMax Global |
+| `minimax-m3` | `minimax`, `minimax-cn`, `mm` | MiniMax M3 | MiniMax CN |
+| `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax M3 | MiniMax Global |
 | `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
 | `qwen3.5-flash` | - | Qwen3.5 Flash | 阿里云 |
 | `qwen3-max` | - | Qwen3 Max | 阿里云 |
@@ -161,8 +159,7 @@ ccmr claude --print --output-format json "你的问题"
 | DeepSeek V4 Pro | 1M | 384K |
 | DeepSeek V4 Flash | 1M | 384K |
 | Kimi K2.6 | 256K | 32K |
-| MiniMax M2.7 (CN / Global) | 200K | 192K |
-| MiniMax M2.7 Highspeed (CN / Global) | 200K | 192K |
+| MiniMax M3 (CN / Global) | 1M | 128K |
 | Qwen3.5 Plus | 1M | 64K |
 | Qwen3.5 Flash | 1M | 64K |
 | Qwen3 Max | 1M | 64K |
@@ -276,8 +273,8 @@ npx claude-code-model-router claude
 /model step       # 切换到 Step 3.7 Flash（按量付费）
 /model step-plan  # 切换到 Step 3.7 Flash（Step Plan 订阅）
 /model kimi       # 切换到 Kimi K2.6
-/model minimax    # 切换到 MiniMax M2.7（国内 Token Plan）
-/model minimax-global # 切换到 MiniMax M2.7（海外）
+/model minimax    # 切换到 MiniMax M3（国内 Token Plan）
+/model minimax-global # 切换到 MiniMax M3（海外）
 /model mimo       # 切换到 MiMo V2.5 Pro（Token Plan SGP）
 /model mimo-token-cn  # 切换到 MiMo V2.5 Pro（Token Plan CN）
 /model mimo-payg      # 切换到 MiMo V2.5 Pro（按量付费）
@@ -288,10 +285,8 @@ npx claude-code-model-router claude
 /model glm-5.1                   # GLM-5.1
 /model step-3.7-flash            # Step 3.7 Flash（按量付费）
 /model step-plan-3.7-flash       # Step 3.7 Flash（Step Plan 订阅）
-/model minimax-m2.7              # MiniMax M2.7
-/model minimax-m2.7-highspeed    # MiniMax M2.7 Highspeed
-/model minimax-global-m2.7       # MiniMax M2.7 Global
-/model minimax-global-m2.7-highspeed # MiniMax M2.7 Highspeed Global
+/model minimax-m3                # MiniMax M3
+/model minimax-global-m3         # MiniMax M3 Global
 /model kimi-k2.6                 # Kimi K2.6
 /model qwen3.5-plus              # Qwen3.5 Plus
 /model qwen3.5-flash             # Qwen3.5 Flash
