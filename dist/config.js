@@ -125,17 +125,17 @@ const DEFAULT_CONFIG = {
                     max_tokens: 65536,
                     context_window: 1000000,
                 },
-                '3-max': {
-                    model_key: 'qwen3-max',
-                    display_name: 'Qwen3 Max',
-                    model_id: 'qwen3-max',
+                '3.7-max': {
+                    model_key: 'qwen3.7-max',
+                    display_name: 'Qwen3.7 Max',
+                    model_id: 'qwen3.7-max',
                     max_tokens: 65536,
                     context_window: 1000000,
                 },
             },
         },
         glm: {
-            display_name: 'GLM',
+            display_name: 'GLM CN',
             provider: 'zhipu',
             base_url: 'https://open.bigmodel.cn/api/anthropic',
             api_key_env: 'GLM_API_KEY',
@@ -143,10 +143,41 @@ const DEFAULT_CONFIG = {
             auth_type: 'api_key',
             supports_streaming: true,
             supports_tools: true,
-            default_variant: '5.1',
+            default_variant: '5.2',
             variants: {
+                '5.2': {
+                    display_name: 'GLM-5.2',
+                    model_id: 'glm-5.2',
+                    max_tokens: 131072,
+                    context_window: 1000000,
+                },
                 '5.1': {
                     display_name: 'GLM-5.1',
+                    model_id: 'glm-5.1',
+                    max_tokens: 131072,
+                    context_window: 204800,
+                },
+            },
+        },
+        'glm-global': {
+            display_name: 'GLM Global',
+            provider: 'zhipu-global',
+            base_url: 'https://api.z.ai/api/anthropic',
+            api_key_env: 'GLM_GLOBAL_API_KEY',
+            auth_header: 'x-api-key',
+            auth_type: 'api_key',
+            supports_streaming: true,
+            supports_tools: true,
+            default_variant: '5.2',
+            variants: {
+                '5.2': {
+                    display_name: 'GLM-5.2 (Global)',
+                    model_id: 'glm-5.2',
+                    max_tokens: 131072,
+                    context_window: 1000000,
+                },
+                '5.1': {
+                    display_name: 'GLM-5.1 (Global)',
                     model_id: 'glm-5.1',
                     max_tokens: 131072,
                     context_window: 204800,
@@ -291,6 +322,31 @@ const DEFAULT_CONFIG = {
                 },
             },
         },
+        seed: {
+            display_name: 'Doubao Seed (Volcengine)',
+            provider: 'volcengine-ark',
+            base_url: 'https://ark.cn-beijing.volces.com/api/coding',
+            api_key_env: 'ARK_API_KEY',
+            auth_header: 'Authorization',
+            auth_type: 'bearer',
+            supports_streaming: true,
+            supports_tools: true,
+            default_variant: '2.1-pro',
+            variants: {
+                '2.1-pro': {
+                    display_name: 'Doubao Seed 2.1 Pro',
+                    model_id: 'doubao-seed-2-1-pro',
+                    max_tokens: 262144,
+                    context_window: 262144,
+                },
+                '2.1-turbo': {
+                    display_name: 'Doubao Seed 2.1 Turbo',
+                    model_id: 'doubao-seed-2-1-turbo',
+                    max_tokens: 262144,
+                    context_window: 262144,
+                },
+            },
+        },
     },
     models: {},
     aliases: {
@@ -315,10 +371,20 @@ const DEFAULT_CONFIG = {
         qwen: 'qwen3.5-plus',
         'qwen3.5': 'qwen3.5-plus',
         tongyi: 'qwen3.5-plus',
-        glm: 'glm-5.1',
+        'qwen-max': 'qwen3.7-max',
+        'qwen3.7-max': 'qwen3.7-max',
+        'qwen3.7': 'qwen3.7-max',
+        glm: 'glm-5.2',
         'glm-5': 'glm-5.1',
-        zhipu: 'glm-5.1',
-        chatglm: 'glm-5.1',
+        'glm-5.1': 'glm-5.1',
+        'glm-5.2': 'glm-5.2',
+        zhipu: 'glm-5.2',
+        chatglm: 'glm-5.2',
+        'glm-global': 'glm-global-5.2',
+        'glm-global-5.2': 'glm-global-5.2',
+        'glm-global-5.1': 'glm-global-5.1',
+        zai: 'glm-global-5.2',
+        'z-ai': 'glm-global-5.2',
         step: 'step-3.7-flash',
         'step-3.7': 'step-3.7-flash',
         'step-3.7-flash': 'step-3.7-flash',
@@ -345,9 +411,17 @@ const DEFAULT_CONFIG = {
         'mimo-payg-pro': 'mimo-payg-v2.5-pro',
         'mimo-payg-v2.5': 'mimo-payg-v2.5',
         xiaomi: 'mimo-v2.5-pro',
+        seed: 'seed-2.1-pro',
+        'seed-pro': 'seed-2.1-pro',
+        'seed-2.1': 'seed-2.1-pro',
+        'seed-2.1-pro': 'seed-2.1-pro',
+        'seed-turbo': 'seed-2.1-turbo',
+        'seed-2.1-turbo': 'seed-2.1-turbo',
+        doubao: 'seed-2.1-pro',
+        'doubao-seed': 'seed-2.1-pro',
     },
     gateway: {
-        host: '0.0.0.0',
+        host: '127.0.0.1',
         port: 8080,
         timeout: 300,
         enable_logging: true,
@@ -595,24 +669,49 @@ providers:
         model_id: qwen3.5-flash
         max_tokens: 65536
         context_window: 1000000
-      3-max:
-        model_key: qwen3-max
-        display_name: "Qwen3 Max"
-        model_id: qwen3-max
+      3.7-max:
+        model_key: qwen3.7-max
+        display_name: "Qwen3.7 Max"
+        model_id: qwen3.7-max
         max_tokens: 65536
         context_window: 1000000
 
   glm:
-    display_name: GLM
+    display_name: GLM CN
     provider: zhipu
     base_url: https://open.bigmodel.cn/api/anthropic
     api_key_env: GLM_API_KEY
     auth_header: x-api-key
     auth_type: api_key
-    default_variant: 5.1
+    default_variant: 5.2
     variants:
+      5.2:
+        display_name: "GLM-5.2"
+        model_id: glm-5.2
+        max_tokens: 131072
+        context_window: 1000000
       5.1:
         display_name: "GLM-5.1"
+        model_id: glm-5.1
+        max_tokens: 131072
+        context_window: 204800
+
+  glm-global:
+    display_name: GLM Global
+    provider: zhipu-global
+    base_url: https://api.z.ai/api/anthropic
+    api_key_env: GLM_GLOBAL_API_KEY
+    auth_header: x-api-key
+    auth_type: api_key
+    default_variant: 5.2
+    variants:
+      5.2:
+        display_name: "GLM-5.2 (Global)"
+        model_id: glm-5.2
+        max_tokens: 131072
+        context_window: 1000000
+      5.1:
+        display_name: "GLM-5.1 (Global)"
         model_id: glm-5.1
         max_tokens: 131072
         context_window: 204800
@@ -727,6 +826,26 @@ providers:
         max_tokens: 131072
         context_window: 1048576
 
+  seed:
+    display_name: Doubao Seed (Volcengine)
+    provider: volcengine-ark
+    base_url: https://ark.cn-beijing.volces.com/api/coding
+    api_key_env: ARK_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: 2.1-pro
+    variants:
+      2.1-pro:
+        display_name: "Doubao Seed 2.1 Pro"
+        model_id: doubao-seed-2-1-pro
+        max_tokens: 262144
+        context_window: 262144
+      2.1-turbo:
+        display_name: "Doubao Seed 2.1 Turbo"
+        model_id: doubao-seed-2-1-turbo
+        max_tokens: 262144
+        context_window: 262144
+
 aliases:
   deepseek: deepseek-v4-pro
   deepseek-v4: deepseek-v4-pro
@@ -748,10 +867,20 @@ aliases:
   qwen: qwen3.5-plus
   qwen3.5: qwen3.5-plus
   tongyi: qwen3.5-plus
-  glm: glm-5.1
+  qwen-max: qwen3.7-max
+  qwen3.7-max: qwen3.7-max
+  qwen3.7: qwen3.7-max
+  glm: glm-5.2
   glm-5: glm-5.1
-  zhipu: glm-5.1
-  chatglm: glm-5.1
+  glm-5.1: glm-5.1
+  glm-5.2: glm-5.2
+  zhipu: glm-5.2
+  chatglm: glm-5.2
+  glm-global: glm-global-5.2
+  glm-global-5.2: glm-global-5.2
+  glm-global-5.1: glm-global-5.1
+  zai: glm-global-5.2
+  z-ai: glm-global-5.2
   step: step-3.7-flash
   step-3.7: step-3.7-flash
   step-3.7-flash: step-3.7-flash
@@ -778,6 +907,14 @@ aliases:
   mimo-payg-pro: mimo-payg-v2.5-pro
   mimo-payg-v2.5: mimo-payg-v2.5
   xiaomi: mimo-v2.5-pro
+  seed: seed-2.1-pro
+  seed-pro: seed-2.1-pro
+  seed-2.1: seed-2.1-pro
+  seed-2.1-pro: seed-2.1-pro
+  seed-turbo: seed-2.1-turbo
+  seed-2.1-turbo: seed-2.1-turbo
+  doubao: seed-2.1-pro
+  doubao-seed: seed-2.1-pro
 
 gateway:
   port: 8080
@@ -803,8 +940,15 @@ MINIMAX_GLOBAL_API_KEY=
 # Qwen - https://dashscope.console.aliyun.com/
 QWEN_API_KEY=
 
-# GLM - https://open.bigmodel.cn/
+# GLM CN (智谱) - https://open.bigmodel.cn/
 GLM_API_KEY=
+
+# GLM Global (Z.ai) - https://z.ai/model-api
+GLM_GLOBAL_API_KEY=
+
+# Doubao Seed (Volcengine 火山方舟, CN only) - https://console.volcengine.com/ark
+# Anthropic 协议接入点，配合 doubao-seed-2-1-pro / doubao-seed-2-1-turbo 使用。
+ARK_API_KEY=
 
 # StepFun (pay-as-you-go) - https://platform.stepfun.com/
 STEP_API_KEY=
@@ -821,6 +965,11 @@ MIMO_TOKEN_AMS_API_KEY=
 
 # MiMo Pay-as-you-go (sk-*) - https://platform.xiaomimimo.com/
 MIMO_PAYG_API_KEY=
+
+# Inbound auth (optional but REQUIRED if you bind to a non-loopback host).
+# When set, callers must send this token as "x-api-key" or "Authorization: Bearer <token>".
+# Leave empty only when the gateway stays bound to 127.0.0.1.
+CCMR_REQUIRED_AUTH_TOKEN=
 `;
 }
 //# sourceMappingURL=config.js.map

@@ -201,18 +201,30 @@ export function createServer(configManager: ConfigManager) {
   return app;
 }
 
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
 export function startServer(configManager: ConfigManager): void {
   const app = createServer(configManager);
   const config = configManager.getConfig();
   const { host, port } = config.gateway;
 
+  const authEnabled = !!(process.env.CCMR_REQUIRED_AUTH_TOKEN ?? '').trim();
+  if (!LOOPBACK_HOSTS.has(host) && !authEnabled) {
+    console.warn('');
+    console.warn('\x1b[33m[WARNING]\x1b[0m Gateway is binding to a non-loopback address');
+    console.warn(`  (host="${host}") with NO inbound authentication.`);
+    console.warn('  Anyone who can reach this address can spend your provider API keys.');
+    console.warn('  Set CCMR_REQUIRED_AUTH_TOKEN to require a token, or bind to 127.0.0.1.');
+  }
+
   app.listen(port, host, () => {
+    const displayHost = LOOPBACK_HOSTS.has(host) ? 'localhost' : host;
     console.log('');
     console.log('============================================================');
     console.log('  Claude Code Model Router');
     console.log('============================================================');
     console.log('');
-    console.log(`Gateway running at: http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
+    console.log(`Gateway running at: http://${displayHost}:${port}`);
     console.log(`Default model: ${config.default_model}`);
     console.log('');
     console.log('Available models:');

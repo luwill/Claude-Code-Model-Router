@@ -52,6 +52,7 @@ npx claude-code-model-router init
 # 启动网关
 npx claude-code-model-router start
 npx claude-code-model-router start --port 9000  # 指定端口
+npx claude-code-model-router start --host 0.0.0.0  # 监听所有网卡（见下方安全提示）
 
 # 查看可用模型
 npx claude-code-model-router models
@@ -63,6 +64,9 @@ npx claude-code-model-router claude --gateway-port 9000  # 自定义网关端口
 # 启动 Claude Code（官方订阅）
 claude
 ```
+
+> **安全提示**：网关默认绑定到 `127.0.0.1`（仅本机可访问）。网关会用你本地配置的各厂商 API Key 代理上游请求，因此任何能访问该端口的人都能消耗你的额度。
+> 若确需通过 `--host 0.0.0.0` 暴露到局域网，请务必设置环境变量 `CCMR_REQUIRED_AUTH_TOKEN`，此时调用方必须在 `x-api-key` 或 `Authorization: Bearer <token>` 中携带该令牌。未设置时绑定非回环地址会打印警告。
 
 ### Claude Code 原生参数支持
 
@@ -142,8 +146,11 @@ ccmr claude --print --output-format json "你的问题"
 | `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax M3 | MiniMax Global |
 | `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
 | `qwen3.5-flash` | - | Qwen3.5 Flash | 阿里云 |
-| `qwen3-max` | - | Qwen3 Max | 阿里云 |
-| `glm-5.1` | `glm`, `glm-5`, `zhipu`, `chatglm` | GLM-5.1 | 智谱 AI |
+| `qwen3.7-max` | `qwen-max`, `qwen3.7` | Qwen3.7 Max | 阿里云 |
+| `glm-5.2` | `glm`, `zhipu`, `chatglm` | GLM-5.2 | 智谱 AI（国内） |
+| `glm-5.1` | `glm-5` | GLM-5.1 | 智谱 AI（国内） |
+| `glm-global-5.2` | `glm-global`, `zai`, `z-ai` | GLM-5.2 | Z.ai（国际） |
+| `glm-global-5.1` | - | GLM-5.1 | Z.ai（国际） |
 | `step-3.7-flash` | `step`, `step-3.7`, `stepfun` | Step 3.7 Flash | 阶跃星辰(按量付费) |
 | `step-plan-3.7-flash` | `step-plan`, `step-plan-3.7`, `stepplan` | Step 3.7 Flash (Step Plan) | 阶跃星辰(订阅) |
 | `mimo-v2.5-pro` | `mimo`, `mimo-pro`, `mimo-token-sgp`, `xiaomi` | MiMo V2.5 Pro | MiMo Token Plan SGP |
@@ -151,6 +158,8 @@ ccmr claude --print --output-format json "你的问题"
 | `mimo-token-cn-v2.5-pro` | `mimo-token-cn`, `mimo-cn` | MiMo V2.5 Pro | MiMo Token Plan CN |
 | `mimo-token-ams-v2.5-pro` | `mimo-token-ams`, `mimo-ams` | MiMo V2.5 Pro | MiMo Token Plan AMS |
 | `mimo-payg-v2.5-pro` | `mimo-payg`, `mimo-payg-pro` | MiMo V2.5 Pro | MiMo Pay-as-you-go |
+| `seed-2.1-pro` | `seed`, `seed-pro`, `doubao` | Doubao Seed 2.1 Pro | 火山方舟（国内） |
+| `seed-2.1-turbo` | `seed-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（国内） |
 
 ### 模型参数
 
@@ -162,11 +171,13 @@ ccmr claude --print --output-format json "你的问题"
 | MiniMax M3 (CN / Global) | 1M | 128K |
 | Qwen3.5 Plus | 1M | 64K |
 | Qwen3.5 Flash | 1M | 64K |
-| Qwen3 Max | 1M | 64K |
-| GLM-5.1 | 200K | 128K |
+| Qwen3.7 Max | 1M | 64K |
+| GLM-5.2 (国内 / 国际) | 1M | 128K |
+| GLM-5.1 (国内 / 国际) | 200K | 128K |
 | Step 3.7 Flash (按量付费 / Step Plan) | 256K | 384K |
 | MiMo V2.5 Pro | 1M | 128K |
 | MiMo V2.5 | 1M | 128K |
+| Doubao Seed 2.1 Pro / Turbo | 256K | 256K |
 
 ## 配置
 
@@ -178,7 +189,9 @@ KIMI_API_KEY=sk-xxx        # https://platform.kimi.ai/
 MINIMAX_API_KEY=xxx        # MiniMax CN / Token Plan: https://platform.minimaxi.com/
 MINIMAX_GLOBAL_API_KEY=xxx # MiniMax Global: https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
-GLM_API_KEY=xxx            # https://open.bigmodel.cn/
+GLM_API_KEY=xxx            # GLM 国内版（智谱）: https://open.bigmodel.cn/
+GLM_GLOBAL_API_KEY=xxx     # GLM 国际版（Z.ai）: https://z.ai/model-api
+ARK_API_KEY=xxx            # Doubao Seed 火山方舟（仅国内）: https://console.volcengine.com/ark
 STEP_API_KEY=xxx           # 阶跃星辰按量付费: https://platform.stepfun.com/
 STEP_PLAN_API_KEY=xxx      # 阶跃星辰 Step Plan 订阅: https://platform.stepfun.com/
 MIMO_API_KEY=tp-xxx        # MiMo Token Plan，默认 SGP 集群
@@ -243,7 +256,7 @@ claude
 ```bash
 npx claude-code-model-router claude
 ```
-- 使用第三方 AI 模型（DeepSeek V4, GLM-5.1, Qwen3.5, Kimi K2.6, MiMo V2.5 等）
+- 使用第三方 AI 模型（DeepSeek V4, GLM-5.2, Qwen3.7, Kimi K2.6, Doubao Seed 2.1, MiMo V2.5 等）
 - 按 API 使用量付费
 - 配置存储在 `~/.claude-gateway/`
 
@@ -269,7 +282,10 @@ npx claude-code-model-router claude
 # 使用短名称（向后兼容）
 /model deepseek   # 切换到 DeepSeek V4 Pro
 /model qwen       # 切换到 Qwen3.5 Plus
-/model glm        # 切换到 GLM-5.1
+/model qwen-max   # 切换到 Qwen3.7 Max
+/model glm        # 切换到 GLM-5.2（国内 智谱）
+/model glm-global # 切换到 GLM-5.2（国际 Z.ai）
+/model seed       # 切换到 Doubao Seed 2.1 Pro（火山方舟，仅国内）
 /model step       # 切换到 Step 3.7 Flash（按量付费）
 /model step-plan  # 切换到 Step 3.7 Flash（Step Plan 订阅）
 /model kimi       # 切换到 Kimi K2.6
@@ -282,7 +298,10 @@ npx claude-code-model-router claude
 # 使用版本别名（明确指定版本）
 /model deepseek-v4-pro           # DeepSeek V4 Pro
 /model deepseek-v4-flash         # DeepSeek V4 Flash
-/model glm-5.1                   # GLM-5.1
+/model glm-5.2                   # GLM-5.2（国内 智谱）
+/model glm-5.1                   # GLM-5.1（国内 智谱）
+/model glm-global-5.2            # GLM-5.2（国际 Z.ai）
+/model glm-global-5.1            # GLM-5.1（国际 Z.ai）
 /model step-3.7-flash            # Step 3.7 Flash（按量付费）
 /model step-plan-3.7-flash       # Step 3.7 Flash（Step Plan 订阅）
 /model minimax-m3                # MiniMax M3
@@ -290,7 +309,9 @@ npx claude-code-model-router claude
 /model kimi-k2.6                 # Kimi K2.6
 /model qwen3.5-plus              # Qwen3.5 Plus
 /model qwen3.5-flash             # Qwen3.5 Flash
-/model qwen3-max                 # Qwen3 Max
+/model qwen3.7-max               # Qwen3.7 Max
+/model seed-2.1-pro              # Doubao Seed 2.1 Pro（火山方舟，仅国内）
+/model seed-2.1-turbo            # Doubao Seed 2.1 Turbo（火山方舟，仅国内）
 /model mimo-v2.5-pro             # MiMo V2.5 Pro
 /model mimo-v2.5                 # MiMo V2.5
 /model mimo-token-ams-v2.5-pro   # MiMo V2.5 Pro Token Plan AMS
@@ -351,6 +372,13 @@ npx claude-code-model-router start --port 9000
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.7.0
+- Qwen 旗舰升级为 Qwen3.7 Max（`qwen3.7-max`，别名 `qwen-max` / `qwen3.7`）
+- GLM 升级为 GLM-5.2 并区分国内/国际版：
+  - 国内版（智谱 `open.bigmodel.cn`）默认 `glm-5.2`，保留 `glm-5.1`
+  - 新增国际版（Z.ai `api.z.ai`），别名 `glm-global` / `zai`，需配置 `GLM_GLOBAL_API_KEY`
+- 新增字节豆包 Doubao Seed 2.1 Pro / Turbo（火山方舟 `ark.cn-beijing.volces.com`，Anthropic 协议），别名 `seed` / `seed-turbo` / `doubao`，需配置 `ARK_API_KEY`（目前仅国内版，国际版 BytePlus 暂未上线 Seed 2.1）
 
 ### v1.3.3
 - CLI 和健康检查版本号改为从 `package.json` 读取，避免发布后显示旧版本

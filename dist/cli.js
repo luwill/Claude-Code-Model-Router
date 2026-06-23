@@ -23,7 +23,7 @@ commander_1.program
     .description('Start the model router gateway')
     .option('-p, --port <port>', 'Port to listen on', '8080')
     .option('-c, --config <path>', 'Path to config file')
-    .option('--host <host>', 'Host to bind to', '0.0.0.0')
+    .option('--host <host>', 'Host to bind to (non-loopback exposes the gateway to the network; set CCMR_REQUIRED_AUTH_TOKEN)', '127.0.0.1')
     .action((options) => {
     // Set port from option
     if (options.port) {
