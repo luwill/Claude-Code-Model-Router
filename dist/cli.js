@@ -161,9 +161,17 @@ commander_1.program
     const gatewayPort = options.gatewayPort || '8080';
     const configManager = new config_js_1.ConfigManager();
     const defaultModel = options.model || configManager.getConfig().default_model;
+    // Auto-size Claude Code's auto-compaction window to the launch model's context
+    // window, unless the user already set it. Behind a custom base URL Claude Code
+    // otherwise assumes ~200k, clipping larger windows (e.g. Seed/Kimi 256K, DeepSeek 1M).
+    const launchModel = configManager.getModel(defaultModel);
+    const autoCompactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW === undefined && launchModel?.context_window
+        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(launchModel.context_window) }
+        : {};
     // Set up environment for gateway
     const env = {
         ...process.env,
+        ...autoCompactWindow,
         CLAUDE_CONFIG_DIR: node_path_1.default.join(homeDir, '.claude-gateway'),
         ANTHROPIC_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
         ANTHROPIC_AUTH_TOKEN: process.env.CCMR_AUTH_TOKEN || 'ccmr-local-gateway',
@@ -239,6 +247,10 @@ commander_1.program
         console.log('Starting Claude Code (Third-party Models)');
         console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
         console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
+        console.log('Model: ' + defaultModel);
+        if (env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) {
+            console.log('Auto-compact window: ' + env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + ' tokens');
+        }
         if (claudeArgs.length > 0) {
             console.log('Arguments: ' + claudeArgs.join(' '));
         }

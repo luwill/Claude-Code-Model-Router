@@ -60,6 +60,18 @@ const DEFAULT_CONFIG = {
                     max_tokens: 32768,
                     context_window: 262144,
                 },
+                'k2.7-code': {
+                    display_name: 'Kimi K2.7 Code',
+                    model_id: 'kimi-k2.7-code',
+                    max_tokens: 32768,
+                    context_window: 262144,
+                },
+                'k2.7-code-highspeed': {
+                    display_name: 'Kimi K2.7 Code HighSpeed',
+                    model_id: 'kimi-k2.7-code-highspeed',
+                    max_tokens: 32768,
+                    context_window: 262144,
+                },
             },
         },
         minimax: {
@@ -325,7 +337,8 @@ const DEFAULT_CONFIG = {
         seed: {
             display_name: 'Doubao Seed (Volcengine)',
             provider: 'volcengine-ark',
-            base_url: 'https://ark.cn-beijing.volces.com/api/coding',
+            // 按量付费（方舟 API 调用）的 Anthropic 兼容接入点。订阅版 Agent Plan 用 /api/plan。
+            base_url: 'https://ark.cn-beijing.volces.com/api/compatible',
             api_key_env: 'ARK_API_KEY',
             auth_header: 'Authorization',
             auth_type: 'bearer',
@@ -335,13 +348,39 @@ const DEFAULT_CONFIG = {
             variants: {
                 '2.1-pro': {
                     display_name: 'Doubao Seed 2.1 Pro',
-                    model_id: 'doubao-seed-2-1-pro',
+                    model_id: 'doubao-seed-2-1-pro-260628',
                     max_tokens: 262144,
                     context_window: 262144,
                 },
                 '2.1-turbo': {
                     display_name: 'Doubao Seed 2.1 Turbo',
-                    model_id: 'doubao-seed-2-1-turbo',
+                    model_id: 'doubao-seed-2-1-turbo-260628',
+                    max_tokens: 262144,
+                    context_window: 262144,
+                },
+            },
+        },
+        'seed-plan': {
+            display_name: 'Doubao Seed (Volcengine Agent Plan)',
+            provider: 'volcengine-ark-plan',
+            // 订阅版 Agent Plan 的 Anthropic 接入点，需专属 API Key（与按量付费 ARK_API_KEY 不同）。
+            base_url: 'https://ark.cn-beijing.volces.com/api/plan',
+            api_key_env: 'ARK_PLAN_API_KEY',
+            auth_header: 'Authorization',
+            auth_type: 'bearer',
+            supports_streaming: true,
+            supports_tools: true,
+            default_variant: '2.1-pro',
+            variants: {
+                '2.1-pro': {
+                    display_name: 'Doubao Seed 2.1 Pro (Agent Plan)',
+                    model_id: 'doubao-seed-2-1-pro-260628',
+                    max_tokens: 262144,
+                    context_window: 262144,
+                },
+                '2.1-turbo': {
+                    display_name: 'Doubao Seed 2.1 Turbo (Agent Plan)',
+                    model_id: 'doubao-seed-2-1-turbo-260628',
                     max_tokens: 262144,
                     context_window: 262144,
                 },
@@ -360,6 +399,13 @@ const DEFAULT_CONFIG = {
         'kimi-k2': 'kimi-k2.6',
         'kimi-k2.6': 'kimi-k2.6',
         moonshot: 'kimi-k2.6',
+        'kimi-k2.7-code': 'kimi-k2.7-code',
+        'kimi-code': 'kimi-k2.7-code',
+        'k2.7-code': 'kimi-k2.7-code',
+        'kimi-k2.7-code-highspeed': 'kimi-k2.7-code-highspeed',
+        'kimi-code-highspeed': 'kimi-k2.7-code-highspeed',
+        'kimi-highspeed': 'kimi-k2.7-code-highspeed',
+        'k2.7-highspeed': 'kimi-k2.7-code-highspeed',
         minimax: 'minimax-m3',
         'minimax-cn': 'minimax-m3',
         'minimax-m3': 'minimax-m3',
@@ -419,6 +465,13 @@ const DEFAULT_CONFIG = {
         'seed-2.1-turbo': 'seed-2.1-turbo',
         doubao: 'seed-2.1-pro',
         'doubao-seed': 'seed-2.1-pro',
+        'seed-plan': 'seed-plan-2.1-pro',
+        'seed-plan-pro': 'seed-plan-2.1-pro',
+        'seed-plan-2.1': 'seed-plan-2.1-pro',
+        'seed-plan-2.1-pro': 'seed-plan-2.1-pro',
+        'seed-plan-turbo': 'seed-plan-2.1-turbo',
+        'seed-plan-2.1-turbo': 'seed-plan-2.1-turbo',
+        'doubao-plan': 'seed-plan-2.1-pro',
     },
     gateway: {
         host: '127.0.0.1',
@@ -615,6 +668,16 @@ providers:
       k2.6:
         display_name: "Kimi K2.6"
         model_id: kimi-k2.6
+        max_tokens: 32768
+        context_window: 262144
+      k2.7-code:
+        display_name: "Kimi K2.7 Code"
+        model_id: kimi-k2.7-code
+        max_tokens: 32768
+        context_window: 262144
+      k2.7-code-highspeed:
+        display_name: "Kimi K2.7 Code HighSpeed"
+        model_id: kimi-k2.7-code-highspeed
         max_tokens: 32768
         context_window: 262144
 
@@ -829,7 +892,8 @@ providers:
   seed:
     display_name: Doubao Seed (Volcengine)
     provider: volcengine-ark
-    base_url: https://ark.cn-beijing.volces.com/api/coding
+    # 按量付费（方舟 API 调用）的 Anthropic 兼容接入点；订阅版 Agent Plan 用 /api/plan
+    base_url: https://ark.cn-beijing.volces.com/api/compatible
     api_key_env: ARK_API_KEY
     auth_header: Authorization
     auth_type: bearer
@@ -837,12 +901,33 @@ providers:
     variants:
       2.1-pro:
         display_name: "Doubao Seed 2.1 Pro"
-        model_id: doubao-seed-2-1-pro
+        model_id: doubao-seed-2-1-pro-260628
         max_tokens: 262144
         context_window: 262144
       2.1-turbo:
         display_name: "Doubao Seed 2.1 Turbo"
-        model_id: doubao-seed-2-1-turbo
+        model_id: doubao-seed-2-1-turbo-260628
+        max_tokens: 262144
+        context_window: 262144
+
+  seed-plan:
+    display_name: Doubao Seed (Volcengine Agent Plan)
+    provider: volcengine-ark-plan
+    # 订阅版 Agent Plan 接入点，需专属 API Key（与按量付费 ARK_API_KEY 不同）
+    base_url: https://ark.cn-beijing.volces.com/api/plan
+    api_key_env: ARK_PLAN_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: 2.1-pro
+    variants:
+      2.1-pro:
+        display_name: "Doubao Seed 2.1 Pro (Agent Plan)"
+        model_id: doubao-seed-2-1-pro-260628
+        max_tokens: 262144
+        context_window: 262144
+      2.1-turbo:
+        display_name: "Doubao Seed 2.1 Turbo (Agent Plan)"
+        model_id: doubao-seed-2-1-turbo-260628
         max_tokens: 262144
         context_window: 262144
 
@@ -856,6 +941,13 @@ aliases:
   kimi: kimi-k2.6
   kimi-k2: kimi-k2.6
   moonshot: kimi-k2.6
+  kimi-k2.7-code: kimi-k2.7-code
+  kimi-code: kimi-k2.7-code
+  k2.7-code: kimi-k2.7-code
+  kimi-k2.7-code-highspeed: kimi-k2.7-code-highspeed
+  kimi-code-highspeed: kimi-k2.7-code-highspeed
+  kimi-highspeed: kimi-k2.7-code-highspeed
+  k2.7-highspeed: kimi-k2.7-code-highspeed
   minimax: minimax-m3
   minimax-cn: minimax-m3
   minimax-m3: minimax-m3
@@ -915,6 +1007,13 @@ aliases:
   seed-2.1-turbo: seed-2.1-turbo
   doubao: seed-2.1-pro
   doubao-seed: seed-2.1-pro
+  seed-plan: seed-plan-2.1-pro
+  seed-plan-pro: seed-plan-2.1-pro
+  seed-plan-2.1: seed-plan-2.1-pro
+  seed-plan-2.1-pro: seed-plan-2.1-pro
+  seed-plan-turbo: seed-plan-2.1-turbo
+  seed-plan-2.1-turbo: seed-plan-2.1-turbo
+  doubao-plan: seed-plan-2.1-pro
 
 gateway:
   port: 8080
@@ -947,8 +1046,13 @@ GLM_API_KEY=
 GLM_GLOBAL_API_KEY=
 
 # Doubao Seed (Volcengine 火山方舟, CN only) - https://console.volcengine.com/ark
-# Anthropic 协议接入点，配合 doubao-seed-2-1-pro / doubao-seed-2-1-turbo 使用。
+# 按量付费 Anthropic 接入点 https://ark.cn-beijing.volces.com/api/compatible，
+# 模型 doubao-seed-2-1-pro-260628 / doubao-seed-2-1-turbo-260628。
 ARK_API_KEY=
+
+# Doubao Seed - Agent Plan 订阅专属 Key（接入点 https://ark.cn-beijing.volces.com/api/plan）
+# 用 seed-plan / seed-plan-turbo 别名。
+ARK_PLAN_API_KEY=
 
 # StepFun (pay-as-you-go) - https://platform.stepfun.com/
 STEP_API_KEY=

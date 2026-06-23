@@ -132,6 +132,7 @@ ccmr claude --print --output-format json "你的问题"
 - `ANTHROPIC_BASE_URL=http://127.0.0.1:<gateway-port>`
 - `ANTHROPIC_AUTH_TOKEN=ccmr-local-gateway`
 - `ANTHROPIC_MODEL` 和 Claude 默认模型变量会指向当前 `default_model`
+- `CLAUDE_CODE_AUTO_COMPACT_WINDOW` 会按启动模型的 `context_window` 自动注入（如 Seed/Kimi 256K、DeepSeek 1M），避免 Claude Code 把第三方模型默认裁剪到 ~200k。若你已自行设置该变量，则尊重你的值不覆盖。注意它是会话级全局：运行时用 `/model` 切到不同上下文窗口的模型时，请重启或用 `ccmr claude --model <模型>` 重新启动以匹配
 
 这些变量只作用于 `ccmr claude` 启动的 Claude Code 子进程，不会修改你的官方 Claude Code 配置，也不会影响直接运行 `claude` 的官方订阅模式。
 
@@ -142,6 +143,8 @@ ccmr claude --print --output-format json "你的问题"
 | `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
 | `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
 | `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot |
+| `kimi-k2.7-code` | `kimi-code`, `k2.7-code` | Kimi K2.7 Code | Moonshot |
+| `kimi-k2.7-code-highspeed` | `kimi-highspeed`, `k2.7-highspeed` | Kimi K2.7 Code HighSpeed | Moonshot |
 | `minimax-m3` | `minimax`, `minimax-cn`, `mm` | MiniMax M3 | MiniMax CN |
 | `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax M3 | MiniMax Global |
 | `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
@@ -158,8 +161,10 @@ ccmr claude --print --output-format json "你的问题"
 | `mimo-token-cn-v2.5-pro` | `mimo-token-cn`, `mimo-cn` | MiMo V2.5 Pro | MiMo Token Plan CN |
 | `mimo-token-ams-v2.5-pro` | `mimo-token-ams`, `mimo-ams` | MiMo V2.5 Pro | MiMo Token Plan AMS |
 | `mimo-payg-v2.5-pro` | `mimo-payg`, `mimo-payg-pro` | MiMo V2.5 Pro | MiMo Pay-as-you-go |
-| `seed-2.1-pro` | `seed`, `seed-pro`, `doubao` | Doubao Seed 2.1 Pro | 火山方舟（国内） |
-| `seed-2.1-turbo` | `seed-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（国内） |
+| `seed-2.1-pro` | `seed`, `seed-pro`, `doubao` | Doubao Seed 2.1 Pro | 火山方舟（按量付费） |
+| `seed-2.1-turbo` | `seed-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（按量付费） |
+| `seed-plan-2.1-pro` | `seed-plan`, `seed-plan-pro`, `doubao-plan` | Doubao Seed 2.1 Pro | 火山方舟（Agent Plan 订阅） |
+| `seed-plan-2.1-turbo` | `seed-plan-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（Agent Plan 订阅） |
 
 ### 模型参数
 
@@ -168,6 +173,7 @@ ccmr claude --print --output-format json "你的问题"
 | DeepSeek V4 Pro | 1M | 384K |
 | DeepSeek V4 Flash | 1M | 384K |
 | Kimi K2.6 | 256K | 32K |
+| Kimi K2.7 Code / HighSpeed | 256K | 32K |
 | MiniMax M3 (CN / Global) | 1M | 128K |
 | Qwen3.5 Plus | 1M | 64K |
 | Qwen3.5 Flash | 1M | 64K |
@@ -177,7 +183,7 @@ ccmr claude --print --output-format json "你的问题"
 | Step 3.7 Flash (按量付费 / Step Plan) | 256K | 384K |
 | MiMo V2.5 Pro | 1M | 128K |
 | MiMo V2.5 | 1M | 128K |
-| Doubao Seed 2.1 Pro / Turbo | 256K | 256K |
+| Doubao Seed 2.1 Pro / Turbo (按量付费 / Agent Plan) | 256K | 256K |
 
 ## 配置
 
@@ -191,7 +197,8 @@ MINIMAX_GLOBAL_API_KEY=xxx # MiniMax Global: https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
 GLM_API_KEY=xxx            # GLM 国内版（智谱）: https://open.bigmodel.cn/
 GLM_GLOBAL_API_KEY=xxx     # GLM 国际版（Z.ai）: https://z.ai/model-api
-ARK_API_KEY=xxx            # Doubao Seed 火山方舟（仅国内）: https://console.volcengine.com/ark
+ARK_API_KEY=xxx            # Doubao Seed 火山方舟 按量付费 (/api/compatible): https://console.volcengine.com/ark
+ARK_PLAN_API_KEY=xxx       # Doubao Seed 火山方舟 Agent Plan 订阅 (/api/plan) 专属 Key
 STEP_API_KEY=xxx           # 阶跃星辰按量付费: https://platform.stepfun.com/
 STEP_PLAN_API_KEY=xxx      # 阶跃星辰 Step Plan 订阅: https://platform.stepfun.com/
 MIMO_API_KEY=tp-xxx        # MiMo Token Plan，默认 SGP 集群
@@ -285,10 +292,13 @@ npx claude-code-model-router claude
 /model qwen-max   # 切换到 Qwen3.7 Max
 /model glm        # 切换到 GLM-5.2（国内 智谱）
 /model glm-global # 切换到 GLM-5.2（国际 Z.ai）
-/model seed       # 切换到 Doubao Seed 2.1 Pro（火山方舟，仅国内）
+/model seed       # 切换到 Doubao Seed 2.1 Pro（火山方舟 按量付费）
+/model seed-plan  # 切换到 Doubao Seed 2.1 Pro（火山方舟 Agent Plan 订阅）
 /model step       # 切换到 Step 3.7 Flash（按量付费）
 /model step-plan  # 切换到 Step 3.7 Flash（Step Plan 订阅）
 /model kimi       # 切换到 Kimi K2.6
+/model kimi-code  # 切换到 Kimi K2.7 Code（编程专用）
+/model kimi-highspeed # 切换到 Kimi K2.7 Code HighSpeed（约 6 倍速）
 /model minimax    # 切换到 MiniMax M3（国内 Token Plan）
 /model minimax-global # 切换到 MiniMax M3（海外）
 /model mimo       # 切换到 MiMo V2.5 Pro（Token Plan SGP）
@@ -307,11 +317,15 @@ npx claude-code-model-router claude
 /model minimax-m3                # MiniMax M3
 /model minimax-global-m3         # MiniMax M3 Global
 /model kimi-k2.6                 # Kimi K2.6
+/model kimi-k2.7-code            # Kimi K2.7 Code
+/model kimi-k2.7-code-highspeed  # Kimi K2.7 Code HighSpeed
 /model qwen3.5-plus              # Qwen3.5 Plus
 /model qwen3.5-flash             # Qwen3.5 Flash
 /model qwen3.7-max               # Qwen3.7 Max
-/model seed-2.1-pro              # Doubao Seed 2.1 Pro（火山方舟，仅国内）
-/model seed-2.1-turbo            # Doubao Seed 2.1 Turbo（火山方舟，仅国内）
+/model seed-2.1-pro              # Doubao Seed 2.1 Pro（按量付费）
+/model seed-2.1-turbo            # Doubao Seed 2.1 Turbo（按量付费）
+/model seed-plan-2.1-pro         # Doubao Seed 2.1 Pro（Agent Plan 订阅）
+/model seed-plan-2.1-turbo       # Doubao Seed 2.1 Turbo（Agent Plan 订阅）
 /model mimo-v2.5-pro             # MiMo V2.5 Pro
 /model mimo-v2.5                 # MiMo V2.5
 /model mimo-token-ams-v2.5-pro   # MiMo V2.5 Pro Token Plan AMS
@@ -372,6 +386,12 @@ npx claude-code-model-router start --port 9000
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.7.1
+- 修正 Doubao Seed 接入点：按量付费应走 `https://ark.cn-beijing.volces.com/api/compatible`（而非旧 Coding Plan 的 `/api/coding`），模型 ID 带版本后缀 `doubao-seed-2-1-pro-260628` / `doubao-seed-2-1-turbo-260628`
+- 新增 Agent Plan 订阅入口 `seed-plan`（`https://ark.cn-beijing.volces.com/api/plan`，需 `ARK_PLAN_API_KEY`），与按量付费 `seed` 区分，模式同 `step` / `step-plan`
+- Kimi 新增 `kimi-k2.7-code` 与 `kimi-k2.7-code-highspeed`（编程专用，256K 上下文；别名 `kimi-code` / `kimi-highspeed`）
+- `ccmr claude` 启动时按所选模型的 `context_window` 自动注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`（已自行设置则不覆盖），并在启动横幅显示当前模型与压缩窗口
 
 ### v1.7.0
 - Qwen 旗舰升级为 Qwen3.7 Max（`qwen3.7-max`，别名 `qwen-max` / `qwen3.7`）
