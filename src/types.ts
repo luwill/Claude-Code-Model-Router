@@ -12,6 +12,8 @@ export interface ModelVariantConfig {
   supports_tools?: boolean;
   max_tokens?: number;
   context_window?: number;
+  /** Models to fail over to on upstream 5xx/429/connection errors. */
+  fallback?: string[];
 }
 
 export interface ProviderConfig {
@@ -24,6 +26,8 @@ export interface ProviderConfig {
   supports_streaming?: boolean;
   supports_tools?: boolean;
   default_variant?: string;
+  /** Default fallback chain for all variants (variant-level wins). */
+  fallback?: string[];
   variants: Record<string, ModelVariantConfig>;
 }
 

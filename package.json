@@ -1,6 +1,6 @@
 {
   "name": "claude-code-model-router",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "A lightweight API gateway for routing Claude Code requests to multiple AI models",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,8 @@
     "start": "node dist/cli.js start",
     "dev": "ts-node src/cli.ts start",
     "clean": "rimraf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -44,12 +46,10 @@
     "config"
   ],
   "dependencies": {
-    "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "js-yaml": "^4.1.0",
-    "node-fetch": "^3.3.2"
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -57,6 +57,7 @@
     "@types/node": "^20.14.0",
     "rimraf": "^5.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.10"
   }
 }

@@ -2,8 +2,10 @@
  * Request routing and forwarding logic
  */
 
-import fetch from 'node-fetch';
+// Uses the Node 18+ built-in fetch: node-fetch v3 is ESM-only and breaks
+// the CJS dist on Node <22.12 (ERR_REQUIRE_ESM).
 import type { ConfigManager } from './config.js';
+import type { UsageTracker } from './usage.js';
 import type {
   MessagesRequest,
   MessagesResponse,
@@ -34,11 +36,41 @@ export class RouterError extends Error {
   }
 }
 
+/** Upstream failures worth retrying on a fallback model. */
+function isRetryable(error: RouterError): boolean {
+  return (
+    error.errorType === 'connection_error' ||
+    error.errorType === 'timeout_error' ||
+    error.statusCode === 429 ||
+    error.statusCode >= 500
+  );
+}
+
+function parseUpstreamErrorMessage(errorText: string): string {
+  try {
+    const errorJson = JSON.parse(errorText);
+    return errorJson.error?.message || errorText;
+  } catch {
+    return errorText;
+  }
+}
+
+interface StreamUsageAccumulator {
+  input: number;
+  output: number;
+}
+
 export class ModelRouter {
   private configManager: ConfigManager;
+  private usageTracker?: UsageTracker;
 
-  constructor(configManager: ConfigManager) {
+  constructor(configManager: ConfigManager, usageTracker?: UsageTracker) {
     this.configManager = configManager;
+    this.usageTracker = usageTracker;
+  }
+
+  private isLoggingEnabled(): boolean {
+    return this.configManager.getConfig().gateway.enable_logging;
   }
 
   resolveRoute(modelName: string): RouteInfo {
@@ -69,6 +101,24 @@ export class ModelRouter {
       config: modelConfig,
       apiKey,
     };
+  }
+
+  /**
+   * The primary model followed by its configured fallbacks (aliases
+   * resolved, duplicates removed). Fallbacks are one level deep by design:
+   * a fallback's own fallback list is ignored, so chains cannot cycle.
+   */
+  buildChain(modelName: string): string[] {
+    const primary = this.configManager.resolveModelName(modelName);
+    const chain = [primary];
+    const fallbacks = this.configManager.getModel(primary)?.fallback ?? [];
+    for (const fallback of fallbacks) {
+      const resolved = this.configManager.resolveModelName(fallback);
+      if (!chain.includes(resolved)) {
+        chain.push(resolved);
+      }
+    }
+    return chain;
   }
 
   buildHeaders(route: RouteInfo, originalHeaders: Record<string, string>): Record<string, string> {
@@ -147,7 +197,62 @@ export class ModelRouter {
     request: MessagesRequest,
     originalHeaders: Record<string, string>
   ): Promise<MessagesResponse> {
-    const route = this.resolveRoute(request.model);
+    const chain = this.buildChain(request.model);
+    let lastError: RouterError | null = null;
+
+    for (let i = 0; i < chain.length; i++) {
+      let route: RouteInfo;
+      try {
+        route = this.resolveRoute(chain[i]);
+      } catch (error) {
+        if (i === 0) {
+          // Primary resolution failures are client misconfiguration - no failover
+          throw error;
+        }
+        continue; // Skip fallbacks that are unknown or missing a key
+      }
+
+      try {
+        const response = await this.attemptRequest(route, request, originalHeaders);
+        this.usageTracker?.record(route.name, response.usage ?? {});
+
+        if (this.isLoggingEnabled()) {
+          console.log(
+            `[${route.config.display_name}] Request completed | ` +
+              `Input: ${response.usage?.input_tokens ?? 'N/A'} | ` +
+              `Output: ${response.usage?.output_tokens ?? 'N/A'}`
+          );
+        }
+        return response;
+      } catch (error) {
+        const routerError =
+          error instanceof RouterError
+            ? error
+            : new RouterError('Unknown error occurred', 500, 'internal_error');
+        this.usageTracker?.recordError(route.name);
+        lastError = routerError;
+
+        const hasMoreCandidates = i < chain.length - 1;
+        if (isRetryable(routerError) && hasMoreCandidates) {
+          if (this.isLoggingEnabled()) {
+            console.log(
+              `[failover] ${route.name} failed (${routerError.message}), trying ${chain[i + 1]}`
+            );
+          }
+          continue;
+        }
+        throw routerError;
+      }
+    }
+
+    throw lastError ?? new RouterError('No usable model in fallback chain', 500, 'internal_error');
+  }
+
+  private async attemptRequest(
+    route: RouteInfo,
+    request: MessagesRequest,
+    originalHeaders: Record<string, string>
+  ): Promise<MessagesResponse> {
     const headers = this.buildHeaders(route, originalHeaders);
     const body = this.buildRequestBody(request, route.config);
     const url = this.buildUrl(route.config);
@@ -167,59 +272,29 @@ export class ModelRouter {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = errorText;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error?.message || errorText;
-        } catch {
-          // Use raw text
-        }
-
         throw new RouterError(
-          `Upstream API error (${route.config.provider}): ${errorMessage}`,
+          `Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`,
           response.status,
           'api_error'
         );
       }
 
-      const data = (await response.json()) as MessagesResponse;
-
-      if (this.configManager.getConfig().gateway.enable_logging) {
-        console.log(
-          `[${route.config.display_name}] Request completed | ` +
-            `Input: ${data.usage?.input_tokens ?? 'N/A'} | ` +
-            `Output: ${data.usage?.output_tokens ?? 'N/A'}`
-        );
-      }
-
-      return data;
+      return (await response.json()) as MessagesResponse;
     } catch (error) {
-      clearTimeout(timeoutId);
-
       if (error instanceof RouterError) {
         throw error;
       }
-
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          throw new RouterError(
-            `Request timed out after ${timeout / 1000}s`,
-            504,
-            'timeout_error'
-          );
+          throw new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error');
         }
-        throw new RouterError(
-          `Connection error: ${error.message}`,
-          502,
-          'connection_error'
-        );
+        throw new RouterError(`Connection error: ${error.message}`, 502, 'connection_error');
       }
-
       throw new RouterError('Unknown error occurred', 500, 'internal_error');
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -227,55 +302,119 @@ export class ModelRouter {
     request: MessagesRequest,
     originalHeaders: Record<string, string>
   ): AsyncGenerator<string> {
-    const route = this.resolveRoute(request.model);
-    const headers = this.buildHeaders(route, originalHeaders);
-    const body = this.buildRequestBody(request, route.config);
-    const url = this.buildUrl(route.config);
-
-    // Ensure stream is true
-    body.stream = true;
-    headers.Accept = 'text/event-stream';
-
+    const chain = this.buildChain(request.model);
     const timeout = this.configManager.getConfig().gateway.timeout * 1000;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    let lastError: RouterError | null = null;
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
+    for (let i = 0; i < chain.length; i++) {
+      let route: RouteInfo;
+      try {
+        route = this.resolveRoute(chain[i]);
+      } catch (error) {
+        if (i === 0) {
+          const routerError =
+            error instanceof RouterError
+              ? error
+              : new RouterError('Unknown error occurred', 500, 'internal_error');
+          yield this.formatErrorEvent(routerError.errorType, routerError.message);
+          return;
+        }
+        continue;
+      }
 
-      clearTimeout(timeoutId);
+      const headers = this.buildHeaders(route, originalHeaders);
+      const body = this.buildRequestBody(request, route.config);
+      const url = this.buildUrl(route.config);
+      body.stream = true;
+      headers.Accept = 'text/event-stream';
+
+      const controller = new AbortController();
+      const connectTimer = setTimeout(() => controller.abort(), timeout);
+      let response: Response;
+
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        clearTimeout(connectTimer);
+        const routerError =
+          error instanceof Error && error.name === 'AbortError'
+            ? new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error')
+            : new RouterError(
+                `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                502,
+                'connection_error'
+              );
+        this.usageTracker?.recordError(route.name);
+        lastError = routerError;
+        if (i < chain.length - 1) {
+          this.logFailover(route.name, routerError.message, chain[i + 1]);
+          continue;
+        }
+        yield this.formatErrorEvent(routerError.errorType, routerError.message);
+        return;
+      }
+      clearTimeout(connectTimer);
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMessage = errorText;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error?.message || errorText;
-        } catch {
-          // Use raw text
+        const routerError = new RouterError(
+          parseUpstreamErrorMessage(errorText),
+          response.status,
+          'api_error'
+        );
+        this.usageTracker?.recordError(route.name);
+        lastError = routerError;
+        if (isRetryable(routerError) && i < chain.length - 1) {
+          this.logFailover(route.name, routerError.message, chain[i + 1]);
+          continue;
         }
-
-        const errorEvent = {
-          type: 'error',
-          error: { type: 'api_error', message: errorMessage },
-        };
-        yield `event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`;
+        yield this.formatErrorEvent('api_error', routerError.message);
         return;
       }
 
-      if (!response.body) {
-        throw new RouterError('No response body', 500, 'internal_error');
+      // Connected: stream the body. No failover past this point - the
+      // client may already have received partial output.
+      yield* this.streamBody(route, response, controller, timeout);
+      return;
+    }
+
+    const message = lastError?.message ?? 'No usable model in fallback chain';
+    yield this.formatErrorEvent(lastError?.errorType ?? 'internal_error', message);
+  }
+
+  private async *streamBody(
+    route: RouteInfo,
+    response: Response,
+    controller: AbortController,
+    timeoutMs: number
+  ): AsyncGenerator<string> {
+    if (!response.body) {
+      this.usageTracker?.recordError(route.name);
+      yield this.formatErrorEvent('internal_error', 'No response body');
+      return;
+    }
+
+    const usage: StreamUsageAccumulator = { input: 0, output: 0 };
+    let buffer = '';
+    let eventCount = 0;
+
+    // Idle watchdog: a stream that stops producing chunks for the full
+    // gateway timeout is aborted instead of hanging the connection forever.
+    let lastChunkAt = Date.now();
+    const idleTimer = setInterval(() => {
+      if (Date.now() - lastChunkAt > timeoutMs) {
+        controller.abort();
       }
+    }, 1000);
 
-      let buffer = '';
-      let eventCount = 0;
-
+    try {
       for await (const value of response.body) {
+        lastChunkAt = Date.now();
         const chunk = typeof value === 'string' ? value : Buffer.from(value).toString('utf-8');
         buffer += chunk;
 
@@ -286,6 +425,7 @@ export class ModelRouter {
           buffer = buffer.slice(idx + 2);
           if (event.trim()) {
             eventCount++;
+            this.accumulateStreamUsage(event, usage);
             yield event + '\n\n';
           }
         }
@@ -294,34 +434,75 @@ export class ModelRouter {
       // Don't forget remaining data
       if (buffer.trim()) {
         eventCount++;
+        this.accumulateStreamUsage(buffer, usage);
         yield buffer + '\n\n';
       }
 
-      console.log(`[${route.config.display_name}] Yielded ${eventCount} events`);
+      this.usageTracker?.record(route.name, {
+        input_tokens: usage.input,
+        output_tokens: usage.output,
+      });
 
-      if (this.configManager.getConfig().gateway.enable_logging) {
-        console.log(`[${route.config.display_name}] Stream completed`);
+      if (this.isLoggingEnabled()) {
+        console.log(`[${route.config.display_name}] Stream completed (${eventCount} events)`);
       }
     } catch (error) {
-      clearTimeout(timeoutId);
+      this.usageTracker?.recordError(route.name);
 
       let errorMessage = 'Unknown error';
       let errorType = 'internal_error';
-
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          errorMessage = `Request timed out after ${timeout / 1000}s`;
+          errorMessage = `Stream idle for more than ${timeoutMs / 1000}s, aborted`;
           errorType = 'timeout_error';
         } else {
           errorMessage = error.message;
         }
       }
-
-      const errorEvent = {
-        type: 'error',
-        error: { type: errorType, message: errorMessage },
-      };
-      yield `event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`;
+      yield this.formatErrorEvent(errorType, errorMessage);
+    } finally {
+      clearInterval(idleTimer);
     }
+  }
+
+  /** Pull token counts out of message_start / message_delta SSE events. */
+  private accumulateStreamUsage(event: string, usage: StreamUsageAccumulator): void {
+    if (!event.includes('"usage"')) {
+      return;
+    }
+    const dataLine = event.split('\n').find((line) => line.startsWith('data:'));
+    if (!dataLine) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(dataLine.slice(5)) as {
+        type?: string;
+        message?: { usage?: { input_tokens?: number; output_tokens?: number } };
+        usage?: { output_tokens?: number };
+      };
+      if (parsed.type === 'message_start' && parsed.message?.usage) {
+        usage.input += parsed.message.usage.input_tokens ?? 0;
+        usage.output = parsed.message.usage.output_tokens ?? usage.output;
+      } else if (parsed.type === 'message_delta' && parsed.usage) {
+        // message_delta reports the cumulative output count
+        usage.output = parsed.usage.output_tokens ?? usage.output;
+      }
+    } catch {
+      // Non-JSON data lines are passed through untouched
+    }
+  }
+
+  private logFailover(from: string, reason: string, to: string): void {
+    if (this.isLoggingEnabled()) {
+      console.log(`[failover] ${from} failed (${reason}), trying ${to}`);
+    }
+  }
+
+  private formatErrorEvent(errorType: string, message: string): string {
+    const errorEvent = {
+      type: 'error',
+      error: { type: errorType, message },
+    };
+    return `event: error\ndata: ${JSON.stringify(errorEvent)}\n\n`;
   }
 }

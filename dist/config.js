@@ -6,16 +6,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConfigManager = void 0;
+exports.ConfigManager = exports.DEFAULT_CONFIG = void 0;
 exports.generateConfigFile = generateConfigFile;
 exports.generateEnvFile = generateEnvFile;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const js_yaml_1 = __importDefault(require("js-yaml"));
 const dotenv_1 = require("dotenv");
-// Load .env file
+const paths_js_1 = require("./paths.js");
+// Load .env files: ./.env first (wins), then ~/.ccmr/.env as global fallback.
+// dotenv never overrides variables that are already set.
 (0, dotenv_1.config)();
-const DEFAULT_CONFIG = {
+(0, dotenv_1.config)({ path: node_path_1.default.join((0, paths_js_1.ccmrHome)(), '.env') });
+exports.DEFAULT_CONFIG = {
     default_model: 'deepseek-v4-pro',
     providers: {
         deepseek: {
@@ -484,23 +487,28 @@ const DEFAULT_CONFIG = {
 class ConfigManager {
     config;
     apiKeys = new Map();
+    requestedConfigPath;
+    configFilePath = null;
     constructor(configPath) {
+        this.requestedConfigPath = configPath;
         this.config = this.loadConfig(configPath);
         this.loadApiKeys();
     }
     loadConfig(configPath) {
-        // Try to find config file
+        // Try to find config file: explicit path > cwd > global ~/.ccmr fallback
         const possiblePaths = [
             configPath,
             node_path_1.default.join(process.cwd(), 'models.yaml'),
             node_path_1.default.join(process.cwd(), 'config', 'models.yaml'),
             node_path_1.default.join(process.cwd(), '.claude-router.yaml'),
+            node_path_1.default.join((0, paths_js_1.ccmrHome)(), 'models.yaml'),
         ].filter(Boolean);
         for (const p of possiblePaths) {
             if (node_fs_1.default.existsSync(p)) {
                 try {
                     const content = node_fs_1.default.readFileSync(p, 'utf-8');
                     const parsed = js_yaml_1.default.load(content);
+                    this.configFilePath = p;
                     return this.mergeConfig(parsed ?? {});
                 }
                 catch (e) {
@@ -509,15 +517,16 @@ class ConfigManager {
             }
         }
         // Return default config if no file found
-        return this.normalizeConfig(DEFAULT_CONFIG);
+        this.configFilePath = null;
+        return this.normalizeConfig(exports.DEFAULT_CONFIG);
     }
     mergeConfig(parsed) {
         return this.normalizeConfig({
-            default_model: parsed.default_model ?? DEFAULT_CONFIG.default_model,
-            providers: this.mergeProviders(DEFAULT_CONFIG.providers ?? {}, parsed.providers ?? {}),
-            models: { ...DEFAULT_CONFIG.models, ...parsed.models },
-            aliases: { ...DEFAULT_CONFIG.aliases, ...parsed.aliases },
-            gateway: { ...DEFAULT_CONFIG.gateway, ...parsed.gateway },
+            default_model: parsed.default_model ?? exports.DEFAULT_CONFIG.default_model,
+            providers: this.mergeProviders(exports.DEFAULT_CONFIG.providers ?? {}, parsed.providers ?? {}),
+            models: { ...exports.DEFAULT_CONFIG.models, ...parsed.models },
+            aliases: { ...exports.DEFAULT_CONFIG.aliases, ...parsed.aliases },
+            gateway: { ...exports.DEFAULT_CONFIG.gateway, ...parsed.gateway },
         });
     }
     mergeProviders(defaults, overrides) {
@@ -573,6 +582,7 @@ class ConfigManager {
             supports_tools: variant.supports_tools ?? provider.supports_tools,
             max_tokens: variant.max_tokens,
             context_window: variant.context_window,
+            fallback: variant.fallback ?? provider.fallback,
             provider_key: providerKey,
             variant_key: variantKey,
             provider_display_name: provider.display_name,
@@ -611,6 +621,51 @@ class ConfigManager {
     reloadApiKeys() {
         this.loadApiKeys();
     }
+    /** Path of the config file that was actually loaded (null = built-in defaults). */
+    getConfigFilePath() {
+        return this.configFilePath;
+    }
+    /**
+     * Hot-reload: re-apply .env files and re-read the loaded config file.
+     * A file that no longer parses keeps the previous working config
+     * instead of silently degrading to defaults.
+     */
+    reload() {
+        this.applyEnvFiles();
+        if (this.configFilePath && node_fs_1.default.existsSync(this.configFilePath)) {
+            try {
+                const content = node_fs_1.default.readFileSync(this.configFilePath, 'utf-8');
+                const parsed = js_yaml_1.default.load(content);
+                this.config = this.mergeConfig(parsed ?? {});
+            }
+            catch (e) {
+                console.warn(`Warning: reload failed, keeping previous config (${this.configFilePath}):`, e instanceof Error ? e.message : e);
+            }
+        }
+        else {
+            // No file previously loaded (or it vanished) - rediscover
+            this.config = this.loadConfig(this.requestedConfigPath);
+        }
+        this.loadApiKeys();
+    }
+    /**
+     * Re-read .env files so edited keys take effect on reload. Applied
+     * global-first so ./.env keeps precedence over ~/.ccmr/.env.
+     */
+    applyEnvFiles() {
+        const candidates = [node_path_1.default.join((0, paths_js_1.ccmrHome)(), '.env'), node_path_1.default.join(process.cwd(), '.env')];
+        for (const p of candidates) {
+            if (!node_fs_1.default.existsSync(p)) {
+                continue;
+            }
+            try {
+                Object.assign(process.env, (0, dotenv_1.parse)(node_fs_1.default.readFileSync(p, 'utf-8')));
+            }
+            catch (e) {
+                console.warn(`Warning: failed to re-read ${p}:`, e instanceof Error ? e.message : e);
+            }
+        }
+    }
     listModels() {
         const result = {};
         for (const [name, model] of Object.entries(this.config.models)) {
@@ -632,6 +687,14 @@ exports.ConfigManager = ConfigManager;
 function generateConfigFile() {
     return `# Claude Code Model Router Configuration
 # Place this file as models.yaml or .claude-router.yaml in your project root
+# (or in ~/.ccmr/models.yaml to share one config across directories).
+#
+# Any variant may declare a fallback chain, used when its upstream returns
+# 5xx/429 or is unreachable:
+#   variants:
+#     v4-pro:
+#       model_id: deepseek-v4-pro
+#       fallback: [kimi-k2.6, glm-5.2]
 
 default_model: deepseek-v4-pro
 
@@ -746,7 +809,7 @@ providers:
     api_key_env: GLM_API_KEY
     auth_header: x-api-key
     auth_type: api_key
-    default_variant: 5.2
+    default_variant: "5.2"
     variants:
       5.2:
         display_name: "GLM-5.2"
@@ -766,7 +829,7 @@ providers:
     api_key_env: GLM_GLOBAL_API_KEY
     auth_header: x-api-key
     auth_type: api_key
-    default_variant: 5.2
+    default_variant: "5.2"
     variants:
       5.2:
         display_name: "GLM-5.2 (Global)"
@@ -940,6 +1003,7 @@ aliases:
   ds: deepseek-v4-pro
   kimi: kimi-k2.6
   kimi-k2: kimi-k2.6
+  kimi-k2.6: kimi-k2.6
   moonshot: kimi-k2.6
   kimi-k2.7-code: kimi-k2.7-code
   kimi-code: kimi-k2.7-code

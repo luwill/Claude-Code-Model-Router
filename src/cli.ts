@@ -8,6 +8,11 @@ import { program } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
+import { persistDefaultModel } from './default-model.js';
+import { checkModels } from './doctor.js';
+import { ensureEnvIgnored } from './env-guard.js';
+import { ensureGatewayRunning } from './launcher.js';
+import { ccmrHome } from './paths.js';
 import { startServer } from './server.js';
 import { VERSION } from './version.js';
 
@@ -54,14 +59,19 @@ program
 // Init command
 program
   .command('init')
-  .description('Initialize configuration files in current directory')
+  .description('Initialize configuration files (current directory, or ~/.ccmr with --global)')
   .option('-f, --force', 'Overwrite existing files')
+  .option('-g, --global', 'Write to ~/.ccmr so every directory can use the same config')
   .action((options) => {
-    const configPath = path.join(process.cwd(), 'models.yaml');
-    const envPath = path.join(process.cwd(), '.env');
+    const targetDir = options.global ? ccmrHome() : process.cwd();
+    if (options.global) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const configPath = path.join(targetDir, 'models.yaml');
+    const envPath = path.join(targetDir, '.env');
 
     console.log('');
-    console.log('Initializing Claude Code Model Router...');
+    console.log(`Initializing Claude Code Model Router in ${targetDir}...`);
     console.log('');
 
     // Create config file
@@ -80,11 +90,21 @@ program
       console.log(`[CREATE] ${envPath}`);
     }
 
+    // .env holds plaintext API keys - keep it out of version control
+    if (!options.global) {
+      const guard = ensureEnvIgnored(targetDir);
+      if (guard === 'added') {
+        console.log('[GUARD] Added .env to .gitignore (API keys must never be committed)');
+      } else if (guard === 'no-git') {
+        console.log('[WARN] Not a git repository - keep .env out of any version control');
+      }
+    }
+
     console.log('');
     console.log('Next steps:');
     console.log('  1. Edit .env and add your API keys');
-    console.log('  2. Run: npx claude-code-model-router start');
-    console.log('  3. In a new terminal, start Claude Code:');
+    console.log('  2. (Optional) Verify connectivity: npx claude-code-model-router doctor');
+    console.log('  3. Start Claude Code (the gateway auto-starts if needed):');
     console.log('');
     console.log('     # For third-party models (gateway mode):');
     console.log('     npx claude-code-model-router claude');
@@ -145,6 +165,145 @@ program
     }
   });
 
+// Use command - persist the default model without hand-editing YAML
+program
+  .command('use')
+  .description('Set the default model (persisted to the active models.yaml)')
+  .argument('<model>', 'Model name or alias (see: ccmr models)')
+  .option('-c, --config <path>', 'Path to config file')
+  .action((modelName: string, options) => {
+    try {
+      const configManager = new ConfigManager(options.config);
+      const model = configManager.getModel(modelName);
+      if (!model) {
+        console.error(`Model '${modelName}' not found. Run 'ccmr models' to list available models.`);
+        process.exit(1);
+      }
+
+      const resolved = configManager.resolveModelName(modelName);
+      let target = configManager.getConfigFilePath();
+      if (!target) {
+        // No config file anywhere yet - persist the preference globally
+        fs.mkdirSync(ccmrHome(), { recursive: true });
+        target = path.join(ccmrHome(), 'models.yaml');
+      }
+      persistDefaultModel(target, resolved);
+
+      console.log('');
+      console.log(`Default model set to: ${resolved} (${model.display_name})`);
+      console.log(`Updated: ${target}`);
+      console.log('A running gateway using this config picks the change up automatically.');
+      console.log('');
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+// Doctor command - real connectivity check per model
+program
+  .command('doctor')
+  .description('Check model connectivity (sends one tiny real request per configured model)')
+  .argument('[models...]', 'Specific models or aliases to check (default: all)')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('--timeout <seconds>', 'Per-check timeout in seconds', '30')
+  .action(async (models: string[], options) => {
+    try {
+      const configManager = new ConfigManager(options.config);
+      console.log('');
+      console.log('Checking model connectivity (one tiny request per model)...');
+      console.log('');
+
+      const results = await checkModels(configManager, {
+        models: models.length > 0 ? models : undefined,
+        timeout: parseInt(options.timeout, 10),
+      });
+
+      const nameWidth = Math.max(24, ...results.map((r) => r.model.length + 2));
+      for (const r of results) {
+        const status =
+          r.status === 'ok'
+            ? '\x1b[32m[OK]  \x1b[0m'
+            : r.status === 'fail'
+              ? '\x1b[31m[FAIL]\x1b[0m'
+              : '\x1b[33m[SKIP]\x1b[0m';
+        const latency = r.latencyMs !== undefined ? `${(r.latencyMs / 1000).toFixed(2)}s` : '-';
+        console.log(
+          `  ${r.model.padEnd(nameWidth)} ${status} ${latency.padEnd(8)} ${r.detail ?? ''}`
+        );
+      }
+
+      const counts = {
+        ok: results.filter((r) => r.status === 'ok').length,
+        fail: results.filter((r) => r.status === 'fail').length,
+        skipped: results.filter((r) => r.status === 'skipped').length,
+      };
+      console.log('');
+      console.log(`${counts.ok} ok, ${counts.fail} failed, ${counts.skipped} skipped (no API key)`);
+      console.log('');
+
+      if (counts.fail > 0) {
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
+  });
+
+// Stats command - show per-model usage from the running gateway
+program
+  .command('stats')
+  .description('Show per-model usage counters from the running gateway')
+  .option('--gateway-port <port>', 'Gateway port (default: 8080)', '8080')
+  .action(async (options) => {
+    try {
+      const headers: Record<string, string> = {};
+      if (process.env.CCMR_AUTH_TOKEN) {
+        headers['x-api-key'] = process.env.CCMR_AUTH_TOKEN;
+      }
+      const res = await fetch(`http://127.0.0.1:${options.gatewayPort}/usage`, { headers });
+      if (!res.ok) {
+        console.error(`Gateway returned ${res.status} - is CCMR_AUTH_TOKEN required?`);
+        process.exit(1);
+      }
+      const usage = (await res.json()) as {
+        since: string;
+        totals: { requests: number; errors: number; input_tokens: number; output_tokens: number };
+        models: Record<
+          string,
+          { requests: number; errors: number; input_tokens: number; output_tokens: number }
+        >;
+      };
+
+      console.log('');
+      console.log(`Usage since ${usage.since}:`);
+      console.log('');
+      const entries = Object.entries(usage.models);
+      if (entries.length === 0) {
+        console.log('  (no requests yet)');
+      } else {
+        const nameWidth = Math.max(24, ...entries.map(([name]) => name.length + 2));
+        console.log(
+          `  ${'Model'.padEnd(nameWidth)} ${'Requests'.padStart(9)} ${'Errors'.padStart(7)} ${'Input'.padStart(12)} ${'Output'.padStart(12)}`
+        );
+        for (const [name, m] of entries) {
+          console.log(
+            `  ${name.padEnd(nameWidth)} ${String(m.requests).padStart(9)} ${String(m.errors).padStart(7)} ${String(m.input_tokens).padStart(12)} ${String(m.output_tokens).padStart(12)}`
+          );
+        }
+        console.log(
+          `  ${'TOTAL'.padEnd(nameWidth)} ${String(usage.totals.requests).padStart(9)} ${String(usage.totals.errors).padStart(7)} ${String(usage.totals.input_tokens).padStart(12)} ${String(usage.totals.output_tokens).padStart(12)}`
+        );
+      }
+      console.log('');
+    } catch {
+      console.error(`Could not reach the gateway on port ${options.gatewayPort}.`);
+      console.error('Start it with: ccmr start');
+      process.exit(1);
+    }
+  });
+
 // Claude command - launches Claude Code connected to the gateway
 // Supports all Claude Code native arguments
 program
@@ -183,6 +342,24 @@ program
     const gatewayPort = options.gatewayPort || '8080';
     const configManager = new ConfigManager();
     const defaultModel = options.model || configManager.getConfig().default_model;
+
+    // Make sure a gateway is listening; auto-start a detached one if not.
+    const gateway = await ensureGatewayRunning(gatewayPort, __filename);
+    if (!gateway) {
+      console.error(`Gateway is not reachable on port ${gatewayPort} and auto-start failed.`);
+      console.error('Check ~/.ccmr/gateway.log or start it manually: ccmr start --port ' + gatewayPort);
+      process.exit(1);
+    }
+    if (gateway.autoStarted) {
+      console.error(
+        `Gateway auto-started on port ${gatewayPort} (pid ${gateway.pid}, log: ${gateway.logFile})`
+      );
+    } else if (gateway.health.version && gateway.health.version !== VERSION) {
+      console.error(
+        `\x1b[33m[WARNING]\x1b[0m Gateway is v${gateway.health.version} but this CLI is v${VERSION}.` +
+          ' Restart the gateway to pick up the new version.'
+      );
+    }
 
     // Auto-size Claude Code's auto-compaction window to the launch model's context
     // window, unless the user already set it. Behind a custom base URL Claude Code
@@ -308,10 +485,13 @@ if (!process.argv.slice(2).length) {
   console.log('  3. npx claude-code-model-router start    # Start gateway');
   console.log('');
   console.log('Commands:');
-  console.log('  init      Create configuration files');
+  console.log('  init      Create configuration files (--global for ~/.ccmr)');
   console.log('  start     Start the gateway server');
   console.log('  models    List available models');
-  console.log('  claude    Launch Claude Code with gateway');
+  console.log('  use       Set the default model');
+  console.log('  doctor    Check model connectivity (real 1-token requests)');
+  console.log('  stats     Show per-model usage from the running gateway');
+  console.log('  claude    Launch Claude Code with gateway (auto-starts it)');
   console.log('');
   console.log('Use --help for more information.');
   console.log('');

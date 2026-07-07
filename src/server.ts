@@ -3,30 +3,36 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { ConfigManager } from './config.js';
+import { ccmrHome } from './paths.js';
 import { ModelRouter, RouterError } from './router.js';
+import { UsageTracker } from './usage.js';
 import type { MessagesRequest } from './types.js';
 import { VERSION } from './version.js';
 
 export function createServer(configManager: ConfigManager) {
   const app = express();
-  const router = new ModelRouter(configManager);
-  const config = configManager.getConfig();
+  const usageTracker = new UsageTracker();
+  const router = new ModelRouter(configManager, usageTracker);
 
   // Middleware
   app.use(express.json({ limit: '50mb' }));
 
-  // Optional inbound auth: when CCMR_REQUIRED_AUTH_TOKEN is set, /v1/* requires it.
-  // /health is always reachable so liveness probes work without credentials.
+  // Optional inbound auth: when CCMR_REQUIRED_AUTH_TOKEN is set, /v1/* and
+  // /usage require it. /health is always reachable so liveness probes work
+  // without credentials.
   const requiredToken = process.env.CCMR_REQUIRED_AUTH_TOKEN;
   if (requiredToken && requiredToken.length > 0) {
     app.use((req: Request, res: Response, next: NextFunction) => {
-      if (!req.path.startsWith('/v1/')) {
+      if (!req.path.startsWith('/v1/') && req.path !== '/usage') {
         return next();
       }
       const raw = req.headers['x-api-key'] ?? req.headers.authorization ?? '';
       const got = String(raw).replace(/^Bearer\s+/i, '').trim();
-      if (got !== requiredToken) {
+      if (!tokensEqual(got, requiredToken)) {
         res.status(401).json({
           type: 'error',
           error: { type: 'authentication_error', message: 'invalid CCMR auth token' },
@@ -37,18 +43,17 @@ export function createServer(configManager: ConfigManager) {
     });
   }
 
-  // Logging middleware
-  if (config.gateway.enable_logging) {
-    app.use((req: Request, _res: Response, next: NextFunction) => {
-      if (req.path !== '/health') {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-      }
-      next();
-    });
-  }
+  // Logging middleware (reads config per request so hot-reload applies)
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (configManager.getConfig().gateway.enable_logging && req.path !== '/health') {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    }
+    next();
+  });
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
+    const config = configManager.getConfig();
     const models: Record<string, string> = {};
     for (const [name, model] of Object.entries(config.models)) {
       if (model.provider_key && name === model.provider_key) {
@@ -67,6 +72,7 @@ export function createServer(configManager: ConfigManager) {
 
   // List models
   app.get('/v1/models', (_req: Request, res: Response) => {
+    const config = configManager.getConfig();
     const data = Object.entries(config.models)
       .filter(([id, model]) => !(model.provider_key && id === model.provider_key))
       .map(([id, model]) => ({
@@ -87,6 +93,7 @@ export function createServer(configManager: ConfigManager) {
   app.post('/v1/messages', async (req: Request, res: Response) => {
     try {
       const body = req.body as MessagesRequest;
+      const config = configManager.getConfig();
 
       // Use default model if not specified
       if (!body.model) {
@@ -164,6 +171,11 @@ export function createServer(configManager: ConfigManager) {
     }
   });
 
+  // Per-model usage counters (reset on gateway restart)
+  app.get('/usage', (_req: Request, res: Response) => {
+    res.json(usageTracker.snapshot());
+  });
+
   // Token counting (not implemented)
   app.post('/v1/messages/count_tokens', (_req: Request, res: Response) => {
     res.status(501).json({
@@ -201,7 +213,38 @@ export function createServer(configManager: ConfigManager) {
   return app;
 }
 
+/** Constant-time token comparison (hash first so lengths always match). */
+function tokensEqual(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(a).digest();
+  const hashB = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
+
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
+function watchConfigFiles(configManager: ConfigManager, host: string, port: number): void {
+  const watched = [
+    configManager.getConfigFilePath(),
+    path.join(process.cwd(), '.env'),
+    path.join(ccmrHome(), '.env'),
+  ].filter((p): p is string => !!p && fs.existsSync(p));
+
+  for (const file of watched) {
+    // watchFile (stat polling) survives editors that replace files atomically
+    fs.watchFile(file, { interval: 1000 }, () => {
+      configManager.reload();
+      // Keep the already-bound address truthful after reload
+      const gateway = configManager.getConfig().gateway;
+      gateway.host = host;
+      gateway.port = port;
+      console.log(`[reload] Configuration reloaded (${file} changed)`);
+    });
+  }
+
+  if (watched.length > 0) {
+    console.log(`Hot reload: watching ${watched.join(', ')}`);
+  }
+}
 
 export function startServer(configManager: ConfigManager): void {
   const app = createServer(configManager);
@@ -217,7 +260,7 @@ export function startServer(configManager: ConfigManager): void {
     console.warn('  Set CCMR_REQUIRED_AUTH_TOKEN to require a token, or bind to 127.0.0.1.');
   }
 
-  app.listen(port, host, () => {
+  const server = app.listen(port, host, () => {
     const displayHost = LOOPBACK_HOSTS.has(host) ? 'localhost' : host;
     console.log('');
     console.log('============================================================');
@@ -239,8 +282,24 @@ export function startServer(configManager: ConfigManager): void {
     }
 
     console.log('');
+    watchConfigFiles(configManager, host, port);
+    console.log('');
     console.log('Press Ctrl+C to stop the gateway.');
     console.log('============================================================');
     console.log('');
+  });
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error('');
+      console.error(`\x1b[31m[ERROR]\x1b[0m Port ${port} is already in use.`);
+      console.error('  Another gateway (or process) is listening there. Either:');
+      console.error(`  - keep using the running gateway, or`);
+      console.error(`  - start on another port: ccmr start --port ${port + 1}`);
+      console.error('');
+    } else {
+      console.error('Server error:', error);
+    }
+    process.exit(1);
   });
 }
