@@ -11,8 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # 18 is the engines floor; verify it stays honest (built-in fetch, no ESM-only deps)
-        node-version: [18.x, 20.x, 24.x]
+        # vitest 4 (via rolldown) needs Node >=20.19; the engines floor of 18
+        # is covered by the node18-runtime job below, against the shipped dist.
+        node-version: [20.x, 24.x]
     steps:
       - uses: actions/checkout@v4
 
@@ -30,14 +31,38 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Smoke test the built gateway
+        run: npm run smoke
+
       - name: Verify committed dist matches source
+        if: matrix.node-version == '24.x'
         run: |
           if ! git diff --exit-code --stat dist/; then
             echo "::error::dist/ is stale - run 'npm run build' and commit the result"
             exit 1
           fi
 
-      - name: Smoke test CLI
+  node18-runtime:
+    # The package declares engines >=18. The test runner cannot run there, so
+    # verify the *published artifact* loads and serves traffic on the floor,
+    # installed with production dependencies only. This is the backstop that
+    # catches ESM-only dependencies (ERR_REQUIRE_ESM) before users do.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: Install production dependencies only
+        run: npm ci --omit=dev
+
+      - name: CLI runs on the engines floor
         run: |
           node dist/cli.js --version
-          node dist/cli.js models | head -30
+          node dist/cli.js models | head -20
+
+      - name: Smoke test the shipped dist
+        run: node scripts/smoke.mjs
