@@ -5,8 +5,8 @@
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { gatewayLogFile } from './paths.js';
 
 export interface GatewayHealth {
   status?: string;
@@ -14,6 +14,8 @@ export interface GatewayHealth {
   default_model?: string;
   config_file?: string | null;
   ccmr_home?: string;
+  /** The gateway's own process id (absent on gateways older than 1.8.2). */
+  pid?: number;
   /** model key -> 'available' | 'no_api_key' (absent on gateways older than 1.8.1) */
   models?: Record<string, string>;
 }
@@ -99,9 +101,9 @@ export async function ensureGatewayRunning(
     return { health: existing, autoStarted: false };
   }
 
-  const logDir = path.join(os.homedir(), '.ccmr');
-  fs.mkdirSync(logDir, { recursive: true });
-  const logFile = path.join(logDir, 'gateway.log');
+  // Follows CCMR_HOME, so config and logs never end up in different places
+  const logFile = gatewayLogFile();
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
   const out = fs.openSync(logFile, 'a');
 
   // Inherit cwd so the gateway discovers the same models.yaml/.env the CLI sees

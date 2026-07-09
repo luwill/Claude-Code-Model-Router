@@ -5,7 +5,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { checkGatewayModel, probeGateway, waitForHealthy } from '../src/launcher.js';
+import { ccmrHome, gatewayLogFile } from '../src/paths.js';
 
 const cleanups: Array<() => void> = [];
 
@@ -48,6 +50,21 @@ describe('probeGateway', () => {
   it('returns null when nothing is listening', async () => {
     const port = await freePort();
     expect(await probeGateway(port, 500)).toBeNull();
+  });
+});
+
+describe('gatewayLogFile', () => {
+  // Config moved with CCMR_HOME but the auto-start log used to stay in ~/.ccmr
+  it('follows CCMR_HOME so config and logs stay together', () => {
+    const saved = process.env.CCMR_HOME;
+    process.env.CCMR_HOME = '/tmp/ccmr-elsewhere';
+    try {
+      expect(gatewayLogFile()).toBe(path.join('/tmp/ccmr-elsewhere', 'gateway.log'));
+      expect(path.dirname(gatewayLogFile())).toBe(ccmrHome());
+    } finally {
+      if (saved === undefined) delete process.env.CCMR_HOME;
+      else process.env.CCMR_HOME = saved;
+    }
   });
 });
 

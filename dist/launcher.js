@@ -13,8 +13,8 @@ exports.waitForHealthy = waitForHealthy;
 exports.ensureGatewayRunning = ensureGatewayRunning;
 const node_child_process_1 = require("node:child_process");
 const node_fs_1 = __importDefault(require("node:fs"));
-const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
+const paths_js_1 = require("./paths.js");
 /**
  * Guards against reusing a reachable-but-useless gateway. A gateway that
  * started before its config existed answers /health with 200 while holding
@@ -73,9 +73,9 @@ async function ensureGatewayRunning(port, cliScript) {
     if (existing) {
         return { health: existing, autoStarted: false };
     }
-    const logDir = node_path_1.default.join(node_os_1.default.homedir(), '.ccmr');
-    node_fs_1.default.mkdirSync(logDir, { recursive: true });
-    const logFile = node_path_1.default.join(logDir, 'gateway.log');
+    // Follows CCMR_HOME, so config and logs never end up in different places
+    const logFile = (0, paths_js_1.gatewayLogFile)();
+    node_fs_1.default.mkdirSync(node_path_1.default.dirname(logFile), { recursive: true });
     const out = node_fs_1.default.openSync(logFile, 'a');
     // Inherit cwd so the gateway discovers the same models.yaml/.env the CLI sees
     const child = (0, node_child_process_1.spawn)(process.execPath, [cliScript, 'start', '--port', String(port)], {

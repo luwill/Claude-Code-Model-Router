@@ -14,6 +14,7 @@ const config_js_1 = require("./config.js");
 const default_model_js_1 = require("./default-model.js");
 const doctor_js_1 = require("./doctor.js");
 const env_guard_js_1 = require("./env-guard.js");
+const gateway_control_js_1 = require("./gateway-control.js");
 const launcher_js_1 = require("./launcher.js");
 const paths_js_1 = require("./paths.js");
 const server_js_1 = require("./server.js");
@@ -141,6 +142,95 @@ commander_1.program
     }
     catch (error) {
         console.error('Error:', error);
+        process.exit(1);
+    }
+});
+function parsePorts(value) {
+    if (!value) {
+        return gateway_control_js_1.DEFAULT_SCAN_PORTS;
+    }
+    return value
+        .split(',')
+        .map((p) => parseInt(p.trim(), 10))
+        .filter((p) => Number.isInteger(p) && p > 0);
+}
+// Status command - find gateways running on this machine
+commander_1.program
+    .command('status')
+    .description('List running ccmr gateways (including ones auto-started by `ccmr claude`)')
+    .option('--ports <ports>', 'Comma-separated ports to scan (default: 8080-8099)')
+    .action(async (options) => {
+    const ports = parsePorts(options.ports);
+    const gateways = await (0, gateway_control_js_1.discoverGateways)(ports);
+    console.log('');
+    if (gateways.length === 0) {
+        console.log(`No ccmr gateway found on ports ${ports[0]}-${ports[ports.length - 1]}.`);
+        console.log('');
+        return;
+    }
+    for (const gateway of gateways) {
+        const keys = `${gateway.modelsReady}/${gateway.modelsTotal} models ready`;
+        const health = gateway.modelsReady === 0 ? '\x1b[33m' + keys + '\x1b[0m' : keys;
+        console.log(`Gateway on port ${gateway.port}`);
+        console.log(`  PID:           ${gateway.pid ?? '(unknown - gateway older than 1.8.2)'}`);
+        console.log(`  Version:       ${gateway.version ?? 'unknown'}`);
+        console.log(`  Default model: ${gateway.default_model ?? 'unknown'}`);
+        console.log(`  Config file:   ${gateway.config_file ?? 'built-in defaults (no config file)'}`);
+        console.log(`  API keys:      ${health}`);
+        console.log('');
+    }
+    console.log(`Stop one with: ccmr stop --port <port>`);
+    console.log('');
+});
+// Stop command - shut a gateway down without hunting for its pid
+commander_1.program
+    .command('stop')
+    .description('Stop a running ccmr gateway')
+    .option('-p, --port <port>', 'Gateway port', '8080')
+    .option('--all', 'Stop every ccmr gateway found on the default port range')
+    .option('--force', 'Escalate to SIGKILL if the gateway ignores SIGTERM')
+    .action(async (options) => {
+    const ports = options.all
+        ? (await (0, gateway_control_js_1.discoverGateways)()).map((gateway) => gateway.port)
+        : [parseInt(options.port, 10)];
+    if (options.all && ports.length === 0) {
+        console.log('');
+        console.log('No ccmr gateway is running.');
+        console.log('');
+        return;
+    }
+    let failed = false;
+    console.log('');
+    for (const port of ports) {
+        const result = await (0, gateway_control_js_1.stopGateway)(port, { force: options.force });
+        switch (result.status) {
+            case 'stopped':
+                console.log(`\x1b[32m[OK]\x1b[0m Stopped gateway on port ${port} (pid ${result.pid})`);
+                break;
+            case 'not_running':
+                console.log(`No ccmr gateway is listening on port ${port}.`);
+                break;
+            case 'unknown_process':
+                // Refusing here is the whole point: never signal a stranger's process.
+                failed = true;
+                console.error(`\x1b[31m[ERROR]\x1b[0m Port ${port} is in use by something that is not a ccmr gateway.` +
+                    ' Refusing to stop it.');
+                break;
+            case 'no_pid':
+                failed = true;
+                console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${port} (v${result.version}) is too old to` +
+                    ' report its pid.');
+                console.error(`  Stop it with: pkill -f "cli.js start --port ${port}"`);
+                break;
+            case 'still_running':
+                failed = true;
+                console.error(`\x1b[31m[ERROR]\x1b[0m Gateway on port ${port} (pid ${result.pid}) ignored SIGTERM.`);
+                console.error('  Retry with: ccmr stop --port ' + port + ' --force');
+                break;
+        }
+    }
+    console.log('');
+    if (failed) {
         process.exit(1);
     }
 });
@@ -307,6 +397,8 @@ commander_1.program
     }
     if (gateway.autoStarted) {
         console.error(`Gateway auto-started on port ${gatewayPort} (pid ${gateway.pid}, log: ${gateway.logFile})`);
+        // It is detached: closing this window leaves it running on purpose.
+        console.error(`It keeps running after this session ends. Stop it with: ccmr stop`);
     }
     else if (gateway.health.version && gateway.health.version !== version_js_1.VERSION) {
         console.error(`\x1b[33m[WARNING]\x1b[0m Gateway is v${gateway.health.version} but this CLI is v${version_js_1.VERSION}.` +
@@ -330,7 +422,7 @@ commander_1.program
         }
         console.error('');
         console.error('  This usually means an old gateway is still running. Fix it with:');
-        console.error(`    pkill -f "cli.js start --port ${gatewayPort}"`);
+        console.error(`    ccmr stop --port ${gatewayPort}`);
         console.error(`    ccmr init --global    # if you have no ~/.ccmr/models.yaml yet`);
         console.error(`    ccmr doctor ${launchModelKey}`);
         console.error('');
@@ -462,7 +554,9 @@ if (!process.argv.slice(2).length) {
     console.log('');
     console.log('Commands:');
     console.log('  init      Create configuration files (--global for ~/.ccmr)');
-    console.log('  start     Start the gateway server');
+    console.log('  start     Start the gateway server (foreground)');
+    console.log('  status    List running gateways (port, pid, config source)');
+    console.log('  stop      Stop a running gateway');
     console.log('  models    List available models');
     console.log('  use       Set the default model');
     console.log('  doctor    Check model connectivity (real 1-token requests)');

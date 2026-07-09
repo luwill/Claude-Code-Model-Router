@@ -8,6 +8,8 @@ export interface GatewayHealth {
     default_model?: string;
     config_file?: string | null;
     ccmr_home?: string;
+    /** The gateway's own process id (absent on gateways older than 1.8.2). */
+    pid?: number;
     /** model key -> 'available' | 'no_api_key' (absent on gateways older than 1.8.1) */
     models?: Record<string, string>;
 }

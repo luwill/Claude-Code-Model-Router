@@ -56,10 +56,18 @@ claude
 npx claude-code-model-router init
 npx claude-code-model-router init --global  # 写入 ~/.ccmr，全目录共享一份配置
 
-# 启动网关（models.yaml / .env 修改后自动热重载，无需重启）
+# 启动网关（前台运行；models.yaml / .env 修改后自动热重载，无需重启）
 npx claude-code-model-router start
 npx claude-code-model-router start --port 9000  # 指定端口
 npx claude-code-model-router start --host 0.0.0.0  # 监听所有网卡（见下方安全提示）
+
+# 查看本机正在运行的网关（端口 / PID / 版本 / 配置来源 / Key 状态）
+npx claude-code-model-router status
+
+# 停止网关（含 `ccmr claude` 后台自动拉起的那个）
+npx claude-code-model-router stop
+npx claude-code-model-router stop --port 9000
+npx claude-code-model-router stop --all
 
 # 查看可用模型
 npx claude-code-model-router models
@@ -83,7 +91,18 @@ npx claude-code-model-router claude --gateway-port 9000  # 自定义网关端口
 claude
 ```
 
-> **配置发现顺序**：`-c 指定路径` > `./models.yaml` > `./config/models.yaml` > `./.claude-router.yaml` > `~/.ccmr/models.yaml`。`.env` 同理：`./.env` 优先，`~/.ccmr/.env` 兜底（环境变量 `CCMR_HOME` 可改写全局目录位置）。
+> **配置发现顺序**：`-c 指定路径` > `./models.yaml` > `./config/models.yaml` > `./.claude-router.yaml` > `~/.ccmr/models.yaml`。`.env` 同理：`./.env` 优先，`~/.ccmr/.env` 兜底（环境变量 `CCMR_HOME` 可改写全局目录位置，日志 `gateway.log` 也随之移动）。
+
+### 网关的生命周期
+
+| 启动方式 | 关掉终端窗口后 | 日志去向 |
+|----------|----------------|----------|
+| `ccmr start` | **随之退出**（前台进程） | 直接打印在终端 |
+| `ccmr claude` 自动拉起 | **继续在后台运行** | `~/.ccmr/gateway.log` |
+
+自动拉起的网关是 detached 进程（自成进程组、`PPID=1`），收不到终端的 `SIGHUP`——这是有意设计：多个 Claude Code 会话可以共用同一个网关，关掉其中一个窗口不该打断其他会话。代价是它不会自己消失，用 `ccmr status` 查看、`ccmr stop` 收掉。
+
+> `ccmr stop` 只会停止通过 `/health` 自证身份的 ccmr 网关。如果端口被其他程序占用，它会明确报错并拒绝操作，绝不会误杀你的其他进程。
 
 > **安全提示**：网关默认绑定到 `127.0.0.1`（仅本机可访问）。网关会用你本地配置的各厂商 API Key 代理上游请求，因此任何能访问该端口的人都能消耗你的额度。
 > 若确需通过 `--host 0.0.0.0` 暴露到局域网，请务必设置环境变量 `CCMR_REQUIRED_AUTH_TOKEN`，此时调用方必须在 `x-api-key` 或 `Authorization: Bearer <token>` 中携带该令牌。未设置时绑定非回环地址会打印警告。
@@ -382,7 +401,7 @@ npx claude-code-model-router claude
 | `/v1/messages` | POST | Anthropic Messages API |
 | `/v1/models` | GET | 列出可用模型 |
 | `/usage` | GET | 按模型的用量统计（请求数 / 错误数 / tokens，网关重启后清零） |
-| `/health` | GET | 健康检查（含网关版本号、`config_file` 配置来源、`ccmr_home`、各模型 Key 状态） |
+| `/health` | GET | 健康检查（含网关版本号、`pid`、`config_file` 配置来源、`ccmr_home`、各模型 Key 状态） |
 
 ## 开发
 
@@ -438,6 +457,14 @@ npx claude-code-model-router start --port 9000
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.8.2
+
+- **新增 `ccmr status`**：列出本机正在运行的 ccmr 网关及其端口、PID、版本、配置来源、可用模型数。`ccmr claude` 自动拉起的网关是 detached 进程（关掉终端后继续运行），此前只能靠 `lsof` 才能找到它
+- **新增 `ccmr stop`**：停止网关，支持 `--port` / `--all` / `--force`。**只会停止通过 `/health` 自证身份的 ccmr 网关**；端口被其他程序占用时明确报错并拒绝操作，不会误杀无关进程
+- **`/health` 新增 `pid` 字段**：`status` / `stop` 因此无需解析 `lsof` / `netstat`，跨平台一致，且从原理上保证只能操作 ccmr 自己的进程
+- **修复日志目录不一致**：自动拉起的网关日志此前写死在 `~/.ccmr/gateway.log`，不随 `CCMR_HOME` 移动，导致配置和日志分居两地
+- README 补充网关生命周期说明（`ccmr start` 前台即退 vs `ccmr claude` 后台常驻）
 
 ### v1.8.1
 

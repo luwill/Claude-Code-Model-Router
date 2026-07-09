@@ -69,6 +69,9 @@ export function createServer(configManager: ConfigManager) {
       // can only be answered by inspecting the process's open files.
       config_file: configManager.getConfigFilePath(),
       ccmr_home: ccmrHome(),
+      // Lets `ccmr stop` target this process without parsing lsof/netstat,
+      // and guarantees it can only ever signal a self-identified gateway.
+      pid: process.pid,
       models,
     });
   });
