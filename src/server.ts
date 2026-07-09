@@ -4,14 +4,13 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 import { ConfigManager } from './config.js';
 import { ccmrHome } from './paths.js';
 import { ModelRouter, RouterError } from './router.js';
 import { UsageTracker } from './usage.js';
 import type { MessagesRequest } from './types.js';
 import { VERSION } from './version.js';
+import { ConfigWatcher } from './watcher.js';
 
 export function createServer(configManager: ConfigManager) {
   const app = express();
@@ -66,6 +65,10 @@ export function createServer(configManager: ConfigManager) {
       status: 'healthy',
       version: VERSION,
       default_model: config.default_model,
+      // Config provenance: without it, "which config is this gateway using?"
+      // can only be answered by inspecting the process's open files.
+      config_file: configManager.getConfigFilePath(),
+      ccmr_home: ccmrHome(),
       models,
     });
   });
@@ -222,28 +225,57 @@ function tokensEqual(a: string, b: string): boolean {
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 
-function watchConfigFiles(configManager: ConfigManager, host: string, port: number): void {
-  const watched = [
-    configManager.getConfigFilePath(),
-    path.join(process.cwd(), '.env'),
-    path.join(ccmrHome(), '.env'),
-  ].filter((p): p is string => !!p && fs.existsSync(p));
+/** Count of models the gateway can actually serve, ignoring provider-key aliases. */
+function countReadyModels(configManager: ConfigManager): { ready: number; total: number } {
+  const entries = Object.entries(configManager.getConfig().models).filter(
+    ([name, model]) => !(model.provider_key && name === model.provider_key)
+  );
+  const ready = entries.filter(([name]) => configManager.getApiKey(name)).length;
+  return { ready, total: entries.length };
+}
 
-  for (const file of watched) {
-    // watchFile (stat polling) survives editors that replace files atomically
-    fs.watchFile(file, { interval: 1000 }, () => {
-      configManager.reload();
+/**
+ * A gateway that starts with no config and no keys is useless, and stays
+ * useless invisibly. Say so loudly rather than serving 401s.
+ */
+function warnIfUnusable(configManager: ConfigManager): void {
+  const configFile = configManager.getConfigFilePath();
+  const { ready, total } = countReadyModels(configManager);
+
+  if (!configFile) {
+    console.warn('');
+    console.warn('\x1b[33m[WARNING]\x1b[0m No config file found - using built-in defaults.');
+    console.warn(`  Looked in: ${process.cwd()} and ${ccmrHome()}`);
+    console.warn('  Create one with: ccmr init --global');
+  }
+
+  if (ready === 0) {
+    console.warn('');
+    console.warn(`\x1b[33m[WARNING]\x1b[0m 0/${total} models have an API key.`);
+    console.warn('  Every request will fail with 401 until a key is configured.');
+    console.warn(`  Add keys to ${ccmrHome()}/.env (or ./.env), then check: ccmr doctor`);
+  }
+}
+
+function startWatching(configManager: ConfigManager, host: string, port: number): ConfigWatcher {
+  const watcher = new ConfigWatcher(configManager, {
+    onReload: (changed) => {
       // Keep the already-bound address truthful after reload
       const gateway = configManager.getConfig().gateway;
       gateway.host = host;
       gateway.port = port;
-      console.log(`[reload] Configuration reloaded (${file} changed)`);
-    });
-  }
 
-  if (watched.length > 0) {
-    console.log(`Hot reload: watching ${watched.join(', ')}`);
-  }
+      const { ready, total } = countReadyModels(configManager);
+      console.log(
+        `[reload] Configuration reloaded (${changed.join(', ')} changed) | ` +
+          `${ready}/${total} models ready`
+      );
+    },
+  });
+  watcher.start();
+  console.log(`Hot reload: watching ${configManager.getConfigFilePath() ?? '(no config file yet)'}`);
+  console.log(`  plus config/.env candidates under ${process.cwd()} and ${ccmrHome()}`);
+  return watcher;
 }
 
 export function startServer(configManager: ConfigManager): void {
@@ -282,7 +314,8 @@ export function startServer(configManager: ConfigManager): void {
     }
 
     console.log('');
-    watchConfigFiles(configManager, host, port);
+    startWatching(configManager, host, port);
+    warnIfUnusable(configManager);
     console.log('');
     console.log('Press Ctrl+C to stop the gateway.');
     console.log('============================================================');

@@ -11,7 +11,7 @@ import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js'
 import { persistDefaultModel } from './default-model.js';
 import { checkModels } from './doctor.js';
 import { ensureEnvIgnored } from './env-guard.js';
-import { ensureGatewayRunning } from './launcher.js';
+import { checkGatewayModel, ensureGatewayRunning } from './launcher.js';
 import { ccmrHome } from './paths.js';
 import { startServer } from './server.js';
 import { VERSION } from './version.js';
@@ -359,6 +359,35 @@ program
         `\x1b[33m[WARNING]\x1b[0m Gateway is v${gateway.health.version} but this CLI is v${VERSION}.` +
           ' Restart the gateway to pick up the new version.'
       );
+    }
+
+    // The gateway may be reachable yet unable to serve this model (e.g. it
+    // started before any config existed). Fail here, with the gateway's own
+    // config source, instead of letting Claude Code surface a bare 401.
+    const launchModelKey = configManager.resolveModelName(defaultModel);
+    const readiness = checkGatewayModel(gateway.health, launchModelKey);
+    if (!readiness.ok) {
+      const source = gateway.health.config_file ?? 'built-in defaults (no config file)';
+      console.error('');
+      console.error(
+        `\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} cannot serve '${launchModelKey}'.`
+      );
+      console.error(
+        readiness.reason === 'unknown_model'
+          ? `  It does not know that model at all.`
+          : `  It has no API key for that model.`
+      );
+      console.error(`  Gateway config source: ${source}`);
+      if (gateway.health.ccmr_home) {
+        console.error(`  Gateway CCMR_HOME:     ${gateway.health.ccmr_home}`);
+      }
+      console.error('');
+      console.error('  This usually means an old gateway is still running. Fix it with:');
+      console.error(`    pkill -f "cli.js start --port ${gatewayPort}"`);
+      console.error(`    ccmr init --global    # if you have no ~/.ccmr/models.yaml yet`);
+      console.error(`    ccmr doctor ${launchModelKey}`);
+      console.error('');
+      process.exit(1);
     }
 
     // Auto-size Claude Code's auto-compaction window to the launch model's context

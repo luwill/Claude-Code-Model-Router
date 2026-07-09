@@ -7,6 +7,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkGatewayModel = checkGatewayModel;
 exports.probeGateway = probeGateway;
 exports.waitForHealthy = waitForHealthy;
 exports.ensureGatewayRunning = ensureGatewayRunning;
@@ -14,6 +15,26 @@ const node_child_process_1 = require("node:child_process");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
+/**
+ * Guards against reusing a reachable-but-useless gateway. A gateway that
+ * started before its config existed answers /health with 200 while holding
+ * zero API keys; without this check the user only finds out via a 401
+ * raised several layers down inside Claude Code.
+ */
+function checkGatewayModel(health, modelKey) {
+    if (!health.models) {
+        // Older gateway: no readiness data. Don't block on missing information.
+        return { ok: true };
+    }
+    const status = health.models[modelKey];
+    if (status === undefined) {
+        return { ok: false, reason: 'unknown_model' };
+    }
+    if (status !== 'available') {
+        return { ok: false, reason: 'no_api_key' };
+    }
+    return { ok: true };
+}
 async function probeGateway(port, timeoutMs = 1500) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

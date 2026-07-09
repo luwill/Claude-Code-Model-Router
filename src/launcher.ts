@@ -12,6 +12,35 @@ export interface GatewayHealth {
   status?: string;
   version?: string;
   default_model?: string;
+  config_file?: string | null;
+  ccmr_home?: string;
+  /** model key -> 'available' | 'no_api_key' (absent on gateways older than 1.8.1) */
+  models?: Record<string, string>;
+}
+
+export type GatewayModelCheck =
+  | { ok: true }
+  | { ok: false; reason: 'unknown_model' | 'no_api_key' };
+
+/**
+ * Guards against reusing a reachable-but-useless gateway. A gateway that
+ * started before its config existed answers /health with 200 while holding
+ * zero API keys; without this check the user only finds out via a 401
+ * raised several layers down inside Claude Code.
+ */
+export function checkGatewayModel(health: GatewayHealth, modelKey: string): GatewayModelCheck {
+  if (!health.models) {
+    // Older gateway: no readiness data. Don't block on missing information.
+    return { ok: true };
+  }
+  const status = health.models[modelKey];
+  if (status === undefined) {
+    return { ok: false, reason: 'unknown_model' };
+  }
+  if (status !== 'available') {
+    return { ok: false, reason: 'no_api_key' };
+  }
+  return { ok: true };
 }
 
 export interface EnsureGatewayResult {

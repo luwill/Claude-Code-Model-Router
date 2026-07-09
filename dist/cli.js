@@ -312,6 +312,30 @@ commander_1.program
         console.error(`\x1b[33m[WARNING]\x1b[0m Gateway is v${gateway.health.version} but this CLI is v${version_js_1.VERSION}.` +
             ' Restart the gateway to pick up the new version.');
     }
+    // The gateway may be reachable yet unable to serve this model (e.g. it
+    // started before any config existed). Fail here, with the gateway's own
+    // config source, instead of letting Claude Code surface a bare 401.
+    const launchModelKey = configManager.resolveModelName(defaultModel);
+    const readiness = (0, launcher_js_1.checkGatewayModel)(gateway.health, launchModelKey);
+    if (!readiness.ok) {
+        const source = gateway.health.config_file ?? 'built-in defaults (no config file)';
+        console.error('');
+        console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} cannot serve '${launchModelKey}'.`);
+        console.error(readiness.reason === 'unknown_model'
+            ? `  It does not know that model at all.`
+            : `  It has no API key for that model.`);
+        console.error(`  Gateway config source: ${source}`);
+        if (gateway.health.ccmr_home) {
+            console.error(`  Gateway CCMR_HOME:     ${gateway.health.ccmr_home}`);
+        }
+        console.error('');
+        console.error('  This usually means an old gateway is still running. Fix it with:');
+        console.error(`    pkill -f "cli.js start --port ${gatewayPort}"`);
+        console.error(`    ccmr init --global    # if you have no ~/.ccmr/models.yaml yet`);
+        console.error(`    ccmr doctor ${launchModelKey}`);
+        console.error('');
+        process.exit(1);
+    }
     // Auto-size Claude Code's auto-compaction window to the launch model's context
     // window, unless the user already set it. Behind a custom base URL Claude Code
     // otherwise assumes ~200k, clipping larger windows (e.g. Seed/Kimi 256K, DeepSeek 1M).

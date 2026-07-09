@@ -149,6 +149,43 @@ describe('GET /health and /v1/models', () => {
     expect(testModel?.model_id).toBe('upstream-model-001');
     expect(testModel?.available).toBe(true);
   });
+
+  // Without these, diagnosing "which config is this gateway actually using?"
+  // requires reading the process's open files.
+  it('exposes the config source so a misconfigured gateway is diagnosable', async () => {
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+
+    const health = (await (await fetch(`${gateway.url}/health`)).json()) as {
+      config_file: string | null;
+      ccmr_home: string;
+    };
+    expect(health.config_file).toBe(configFile);
+    expect(health.ccmr_home).toBeTruthy();
+  });
+
+  it('reports config_file: null when running on built-in defaults', async () => {
+    // Point CCMR_HOME at an empty dir: the real ~/.ccmr/models.yaml on a
+    // developer's machine would otherwise be discovered as the fallback.
+    const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ccmr-empty-home-'));
+    cleanups.push(() => fs.rmSync(emptyHome, { recursive: true, force: true }));
+    const savedHome = process.env.CCMR_HOME;
+    process.env.CCMR_HOME = emptyHome;
+
+    try {
+      const gateway = await startGateway('/nonexistent/models.yaml');
+
+      const health = (await (await fetch(`${gateway.url}/health`)).json()) as {
+        config_file: string | null;
+        ccmr_home: string;
+      };
+      expect(health.config_file).toBeNull();
+      expect(health.ccmr_home).toBe(emptyHome);
+    } finally {
+      if (savedHome === undefined) delete process.env.CCMR_HOME;
+      else process.env.CCMR_HOME = savedHome;
+    }
+  });
 });
 
 describe('POST /v1/messages forwarding', () => {

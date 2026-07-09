@@ -5,7 +5,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { probeGateway, waitForHealthy } from '../src/launcher.js';
+import { checkGatewayModel, probeGateway, waitForHealthy } from '../src/launcher.js';
 
 const cleanups: Array<() => void> = [];
 
@@ -48,6 +48,35 @@ describe('probeGateway', () => {
   it('returns null when nothing is listening', async () => {
     const port = await freePort();
     expect(await probeGateway(port, 500)).toBeNull();
+  });
+});
+
+describe('checkGatewayModel', () => {
+  // Regression: a reachable gateway with zero API keys used to be reused
+  // silently, surfacing as a 401 deep inside Claude Code.
+  it('accepts a model the gateway reports as available', () => {
+    const health = { models: { 'deepseek-v4-pro': 'available' } };
+    expect(checkGatewayModel(health, 'deepseek-v4-pro')).toEqual({ ok: true });
+  });
+
+  it('rejects a model the gateway has no API key for', () => {
+    const health = { models: { 'deepseek-v4-pro': 'no_api_key' } };
+    expect(checkGatewayModel(health, 'deepseek-v4-pro')).toEqual({
+      ok: false,
+      reason: 'no_api_key',
+    });
+  });
+
+  it('rejects a model the gateway does not know at all', () => {
+    const health = { models: { 'kimi-k2.6': 'available' } };
+    expect(checkGatewayModel(health, 'deepseek-v4-pro')).toEqual({
+      ok: false,
+      reason: 'unknown_model',
+    });
+  });
+
+  it('does not block when an older gateway omits the models map', () => {
+    expect(checkGatewayModel({ version: '1.7.1' }, 'deepseek-v4-pro')).toEqual({ ok: true });
   });
 });
 

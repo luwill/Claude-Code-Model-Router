@@ -10,12 +10,11 @@ exports.createServer = createServer;
 exports.startServer = startServer;
 const express_1 = __importDefault(require("express"));
 const node_crypto_1 = __importDefault(require("node:crypto"));
-const node_fs_1 = __importDefault(require("node:fs"));
-const node_path_1 = __importDefault(require("node:path"));
 const paths_js_1 = require("./paths.js");
 const router_js_1 = require("./router.js");
 const usage_js_1 = require("./usage.js");
 const version_js_1 = require("./version.js");
+const watcher_js_1 = require("./watcher.js");
 function createServer(configManager) {
     const app = (0, express_1.default)();
     const usageTracker = new usage_js_1.UsageTracker();
@@ -64,6 +63,10 @@ function createServer(configManager) {
             status: 'healthy',
             version: version_js_1.VERSION,
             default_model: config.default_model,
+            // Config provenance: without it, "which config is this gateway using?"
+            // can only be answered by inspecting the process's open files.
+            config_file: configManager.getConfigFilePath(),
+            ccmr_home: (0, paths_js_1.ccmrHome)(),
             models,
         });
     });
@@ -204,26 +207,48 @@ function tokensEqual(a, b) {
     return node_crypto_1.default.timingSafeEqual(hashA, hashB);
 }
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
-function watchConfigFiles(configManager, host, port) {
-    const watched = [
-        configManager.getConfigFilePath(),
-        node_path_1.default.join(process.cwd(), '.env'),
-        node_path_1.default.join((0, paths_js_1.ccmrHome)(), '.env'),
-    ].filter((p) => !!p && node_fs_1.default.existsSync(p));
-    for (const file of watched) {
-        // watchFile (stat polling) survives editors that replace files atomically
-        node_fs_1.default.watchFile(file, { interval: 1000 }, () => {
-            configManager.reload();
+/** Count of models the gateway can actually serve, ignoring provider-key aliases. */
+function countReadyModels(configManager) {
+    const entries = Object.entries(configManager.getConfig().models).filter(([name, model]) => !(model.provider_key && name === model.provider_key));
+    const ready = entries.filter(([name]) => configManager.getApiKey(name)).length;
+    return { ready, total: entries.length };
+}
+/**
+ * A gateway that starts with no config and no keys is useless, and stays
+ * useless invisibly. Say so loudly rather than serving 401s.
+ */
+function warnIfUnusable(configManager) {
+    const configFile = configManager.getConfigFilePath();
+    const { ready, total } = countReadyModels(configManager);
+    if (!configFile) {
+        console.warn('');
+        console.warn('\x1b[33m[WARNING]\x1b[0m No config file found - using built-in defaults.');
+        console.warn(`  Looked in: ${process.cwd()} and ${(0, paths_js_1.ccmrHome)()}`);
+        console.warn('  Create one with: ccmr init --global');
+    }
+    if (ready === 0) {
+        console.warn('');
+        console.warn(`\x1b[33m[WARNING]\x1b[0m 0/${total} models have an API key.`);
+        console.warn('  Every request will fail with 401 until a key is configured.');
+        console.warn(`  Add keys to ${(0, paths_js_1.ccmrHome)()}/.env (or ./.env), then check: ccmr doctor`);
+    }
+}
+function startWatching(configManager, host, port) {
+    const watcher = new watcher_js_1.ConfigWatcher(configManager, {
+        onReload: (changed) => {
             // Keep the already-bound address truthful after reload
             const gateway = configManager.getConfig().gateway;
             gateway.host = host;
             gateway.port = port;
-            console.log(`[reload] Configuration reloaded (${file} changed)`);
-        });
-    }
-    if (watched.length > 0) {
-        console.log(`Hot reload: watching ${watched.join(', ')}`);
-    }
+            const { ready, total } = countReadyModels(configManager);
+            console.log(`[reload] Configuration reloaded (${changed.join(', ')} changed) | ` +
+                `${ready}/${total} models ready`);
+        },
+    });
+    watcher.start();
+    console.log(`Hot reload: watching ${configManager.getConfigFilePath() ?? '(no config file yet)'}`);
+    console.log(`  plus config/.env candidates under ${process.cwd()} and ${(0, paths_js_1.ccmrHome)()}`);
+    return watcher;
 }
 function startServer(configManager) {
     const app = createServer(configManager);
@@ -257,7 +282,8 @@ function startServer(configManager) {
             console.log(`  - ${name}: ${model.display_name} (${model.provider}) ${status}`);
         }
         console.log('');
-        watchConfigFiles(configManager, host, port);
+        startWatching(configManager, host, port);
+        warnIfUnusable(configManager);
         console.log('');
         console.log('Press Ctrl+C to stop the gateway.');
         console.log('============================================================');
