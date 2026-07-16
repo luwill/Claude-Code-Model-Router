@@ -1,5 +1,19 @@
 # v1.8.0 实施计划（易用性 + 风险修复）
 
+## v1.8.3 审查修复计划（2026-07-16）
+
+本轮按风险优先级逐项修复，并为每项补回归测试；不删除现有项目文件。
+
+| # | 阶段 | 内容 | 状态 |
+|---|------|------|------|
+| 1 | 配置隔离 | 阻止 `ccmr claude` 跨项目复用来源不一致的后台网关 | ✅ 完成 |
+| 2 | 流式可靠性 | 增量 UTF-8 解码、CRLF SSE、断连取消、响应背压 | ✅ 完成 |
+| 3 | 鉴权与密钥 | 统一客户端/服务端令牌、可撤销 `.env` 热加载、网络绑定 fail-closed | ✅ 完成 |
+| 4 | 配置与功能 | CLI/YAML/env 优先级、严格校验、能力约束、token counting 代理 | ✅ 完成 |
+| 5 | 发布工程 | 修复依赖审计、补 LICENSE、更新 README/CI，并完成全量发布检查 | ✅ 完成 |
+
+---
+
 按 review 结论分 5 个阶段实施，测试先行（vitest 基线 → 新功能 red-green）。
 
 | # | 阶段 | 内容 | 状态 |
@@ -21,3 +35,10 @@
 - `ccmr doctor`（真实 key，ccmr-start）：7 ok / 3 fail / 18 skip；确认 seed-2.1-pro 已开通可用，暴露 seed-2.1-turbo 未开通、mimo-token-cn Key 失效 ✅
 - 自动拉起 E2E：`ccmr claude -p ... --gateway-port 8096`（空端口）→ 网关自动拉起 → DeepSeek 真实请求返回 `SELFTEST-OK` ✅
 - `ccmr stats`：正确显示 1 次请求 39148/41 tokens ✅
+
+## v1.8.3 自测记录（2026-07-16）
+
+- `npm run check`：TypeScript 类型检查、107/107 测试、构建与网关烟雾测试全部通过 ✅
+- 烟雾测试覆盖健康检查、非流式转发、SSE 流式转发与用量统计 ✅
+- `npm audit --audit-level=high`：0 vulnerabilities ✅
+- `npm pack --dry-run`：发布包内容检查通过 ✅

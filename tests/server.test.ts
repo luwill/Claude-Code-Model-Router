@@ -3,7 +3,7 @@
  * /v1/messages forwarding (JSON + SSE) and optional inbound auth.
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import fs from 'node:fs';
@@ -40,7 +40,7 @@ function writeTempConfig(content: string): string {
   return file;
 }
 
-async function startGateway(configFile: string): Promise<{ url: string; close: () => void }> {
+async function startGateway(configFile: string | null): Promise<{ url: string; close: () => void }> {
   const manager = new ConfigManager(configFile);
   const app = createServer(manager);
   const server = http.createServer(app);
@@ -82,6 +82,12 @@ beforeAll(async () => {
       captured.headers = req.headers;
       captured.body = raw ? JSON.parse(raw) : {};
 
+      if (req.url?.endsWith('/count_tokens')) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ input_tokens: 23 }));
+        return;
+      }
+
       const body = captured.body as { stream?: boolean };
       if (body.stream) {
         res.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -119,6 +125,11 @@ beforeAll(async () => {
 afterAll(() => {
   upstream.close();
   delete process.env.TEST_UPSTREAM_KEY;
+});
+
+beforeEach(() => {
+  // Keep tests isolated from a developer's real .env auth setting.
+  process.env.CCMR_REQUIRED_AUTH_TOKEN = '';
 });
 
 afterEach(() => {
@@ -173,7 +184,7 @@ describe('GET /health and /v1/models', () => {
     process.env.CCMR_HOME = emptyHome;
 
     try {
-      const gateway = await startGateway('/nonexistent/models.yaml');
+      const gateway = await startGateway(null);
 
       const health = (await (await fetch(`${gateway.url}/health`)).json()) as {
         config_file: string | null;
@@ -254,6 +265,38 @@ describe('POST /v1/messages forwarding', () => {
     const data = (await res.json()) as { error: { type: string } };
     expect(data.error.type).toBe('invalid_model');
   });
+
+  it('rejects malformed requests locally instead of forwarding them', async () => {
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+    const res = await fetch(`${gateway.url}/v1/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'testmodel-v1', messages: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { type: string } }).error.type).toBe(
+      'invalid_request_error'
+    );
+  });
+
+  it('proxies count_tokens to the selected provider endpoint', async () => {
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+    const res = await fetch(`${gateway.url}/v1/messages/count_tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'testmodel-v1',
+        messages: [{ role: 'user', content: 'count me' }],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ input_tokens: 23 });
+    expect(captured.path).toBe('/v1/messages/count_tokens');
+  });
 });
 
 describe('inbound auth (CCMR_REQUIRED_AUTH_TOKEN)', () => {
@@ -273,6 +316,24 @@ describe('inbound auth (CCMR_REQUIRED_AUTH_TOKEN)', () => {
           headers: { authorization: 'Bearer secret-token' },
         })
       ).status
+    ).toBe(200);
+  });
+
+  it('applies token rotation without recreating the server', async () => {
+    process.env.CCMR_REQUIRED_AUTH_TOKEN = 'old-token';
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+
+    expect(
+      (await fetch(`${gateway.url}/v1/models`, { headers: { 'x-api-key': 'old-token' } })).status
+    ).toBe(200);
+
+    process.env.CCMR_REQUIRED_AUTH_TOKEN = 'new-token';
+    expect(
+      (await fetch(`${gateway.url}/v1/models`, { headers: { 'x-api-key': 'old-token' } })).status
+    ).toBe(401);
+    expect(
+      (await fetch(`${gateway.url}/v1/models`, { headers: { 'x-api-key': 'new-token' } })).status
     ).toBe(200);
   });
 });

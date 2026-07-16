@@ -31,6 +31,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
       - name: Smoke test the built gateway
         run: npm run smoke
 

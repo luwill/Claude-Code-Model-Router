@@ -4,15 +4,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import yaml from 'js-yaml';
-import { config as dotenvConfig, parse as dotenvParse } from 'dotenv';
+import { parse as dotenvParse } from 'dotenv';
 import { ccmrHome } from './paths.js';
 import type { ModelConfig, ProviderConfig, RouterConfig } from './types.js';
-
-// Load .env files: ./.env first (wins), then ~/.ccmr/.env as global fallback.
-// dotenv never overrides variables that are already set.
-dotenvConfig();
-dotenvConfig({ path: path.join(ccmrHome(), '.env') });
 
 export const DEFAULT_CONFIG: RouterConfig = {
   default_model: 'deepseek-v4-pro',
@@ -486,33 +482,43 @@ export class ConfigManager {
   private apiKeys: Map<string, string> = new Map();
   private requestedConfigPath?: string;
   private configFilePath: string | null = null;
+  /** Values this instance injected from .env, used to revoke removed entries. */
+  private managedEnvValues = new Map<string, string>();
 
-  constructor(configPath?: string) {
-    this.requestedConfigPath = configPath;
-    this.config = this.loadConfig(configPath);
+  constructor(configPath?: string | null) {
+    this.requestedConfigPath = configPath ?? undefined;
+    this.config = configPath === null ? this.normalizeConfig(DEFAULT_CONFIG) : this.loadConfig(configPath);
+    this.applyEnvFiles();
+    this.config = this.applyGatewayEnvOverrides(this.config);
     this.loadApiKeys();
   }
 
   private loadConfig(configPath?: string): RouterConfig {
-    // Try to find config file: explicit path > cwd > global ~/.ccmr fallback
+    // An explicit path is a contract: never silently fall back to another
+    // project or the built-in defaults when it is missing or malformed.
+    if (configPath) {
+      const explicitPath = path.resolve(configPath);
+      if (!fs.existsSync(explicitPath)) {
+        throw new Error(`Config file not found: ${explicitPath}`);
+      }
+      const config = this.readConfigFile(explicitPath);
+      this.configFilePath = explicitPath;
+      return config;
+    }
+
+    // Otherwise discover cwd first, then the global ~/.ccmr fallback.
     const possiblePaths = [
-      configPath,
       path.join(process.cwd(), 'models.yaml'),
       path.join(process.cwd(), 'config', 'models.yaml'),
       path.join(process.cwd(), '.claude-router.yaml'),
       path.join(ccmrHome(), 'models.yaml'),
-    ].filter(Boolean) as string[];
+    ];
 
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
-        try {
-          const content = fs.readFileSync(p, 'utf-8');
-          const parsed = yaml.load(content) as Partial<RouterConfig> | null;
-          this.configFilePath = p;
-          return this.mergeConfig(parsed ?? {});
-        } catch (e) {
-          console.warn(`Warning: Failed to parse config file ${p}:`, e);
-        }
+        const config = this.readConfigFile(p);
+        this.configFilePath = p;
+        return config;
       }
     }
 
@@ -521,14 +527,37 @@ export class ConfigManager {
     return this.normalizeConfig(DEFAULT_CONFIG);
   }
 
+  private readConfigFile(filePath: string): RouterConfig {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = yaml.load(content);
+      if (parsed !== null && !this.isRecord(parsed)) {
+        throw new Error('top-level YAML value must be an object');
+      }
+      if (this.isRecord(parsed)) {
+        for (const section of ['providers', 'models', 'aliases', 'gateway'] as const) {
+          if (parsed[section] !== undefined && !this.isRecord(parsed[section])) {
+            throw new Error(`${section} must be an object`);
+          }
+        }
+      }
+      return this.mergeConfig((parsed ?? {}) as Partial<RouterConfig>);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid config file ${filePath}: ${detail}`);
+    }
+  }
+
   private mergeConfig(parsed: Partial<RouterConfig>): RouterConfig {
-    return this.normalizeConfig({
+    const merged = {
       default_model: parsed.default_model ?? DEFAULT_CONFIG.default_model,
       providers: this.mergeProviders(DEFAULT_CONFIG.providers ?? {}, parsed.providers ?? {}),
       models: { ...DEFAULT_CONFIG.models, ...parsed.models },
       aliases: { ...DEFAULT_CONFIG.aliases, ...parsed.aliases },
       gateway: { ...DEFAULT_CONFIG.gateway, ...parsed.gateway },
-    });
+    } as RouterConfig;
+    this.validateConfigShape(merged);
+    return this.normalizeConfig(merged);
   }
 
   private mergeProviders(
@@ -573,13 +602,31 @@ export class ConfigManager {
       models[modelKey] = model;
     }
 
-    return {
+    const normalized = {
       ...config,
       default_model: this.resolveAlias(config.default_model, config.aliases ?? {}),
       models,
       aliases: config.aliases ?? {},
       gateway: config.gateway,
     };
+    if (!normalized.models[normalized.default_model]) {
+      throw new Error(`default_model '${config.default_model}' does not resolve to a configured model`);
+    }
+    for (const [alias, target] of Object.entries(normalized.aliases)) {
+      const resolved = this.resolveAlias(target, normalized.aliases);
+      if (!normalized.models[resolved]) {
+        throw new Error(`alias '${alias}' resolves to unknown model '${resolved}'`);
+      }
+    }
+    for (const [modelName, model] of Object.entries(normalized.models)) {
+      for (const fallback of model.fallback ?? []) {
+        const resolved = this.resolveAlias(fallback, normalized.aliases);
+        if (!normalized.models[resolved]) {
+          throw new Error(`model '${modelName}' has unknown fallback '${fallback}'`);
+        }
+      }
+    }
+    return normalized;
   }
 
   private buildModelConfig(
@@ -608,7 +655,173 @@ export class ConfigManager {
   }
 
   private resolveAlias(name: string, aliases: Record<string, string>): string {
-    return aliases[name] ?? name;
+    let current = name;
+    const seen = new Set<string>();
+    while (aliases[current] !== undefined) {
+      if (aliases[current] === current) {
+        return current;
+      }
+      if (seen.has(current)) {
+        throw new Error(`Alias cycle detected at '${current}'`);
+      }
+      seen.add(current);
+      current = aliases[current];
+    }
+    return current;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private requireString(value: unknown, field: string): asserts value is string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new Error(`${field} must be a non-empty string`);
+    }
+  }
+
+  private validateFallback(value: unknown, field: string): void {
+    if (value === undefined) return;
+    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+      throw new Error(`${field} must be an array of model names`);
+    }
+  }
+
+  private validateConfigShape(config: RouterConfig): void {
+    this.requireString(config.default_model, 'default_model');
+    if (!this.isRecord(config.providers)) throw new Error('providers must be an object');
+    if (!this.isRecord(config.models)) throw new Error('models must be an object');
+    if (!this.isRecord(config.aliases)) throw new Error('aliases must be an object');
+    if (!this.isRecord(config.gateway)) throw new Error('gateway must be an object');
+
+    const gateway = config.gateway;
+    this.requireString(gateway.host, 'gateway.host');
+    if (!Number.isInteger(gateway.port) || gateway.port < 1 || gateway.port > 65535) {
+      throw new Error('gateway.port must be an integer from 1 to 65535');
+    }
+    if (!Number.isFinite(gateway.timeout) || gateway.timeout <= 0) {
+      throw new Error('gateway.timeout must be a positive number');
+    }
+    if (typeof gateway.enable_logging !== 'boolean') {
+      throw new Error('gateway.enable_logging must be a boolean');
+    }
+    this.requireString(gateway.log_level, 'gateway.log_level');
+    if (!new Set(['DEBUG', 'INFO', 'WARN', 'ERROR', 'SILENT']).has(gateway.log_level.toUpperCase())) {
+      throw new Error('gateway.log_level must be DEBUG, INFO, WARN, ERROR, or SILENT');
+    }
+
+    for (const [alias, target] of Object.entries(config.aliases)) {
+      this.requireString(target, `aliases.${alias}`);
+    }
+
+    for (const [providerKey, providerValue] of Object.entries(config.providers)) {
+      if (!this.isRecord(providerValue)) throw new Error(`providers.${providerKey} must be an object`);
+      const provider = providerValue as unknown as ProviderConfig;
+      this.requireString(provider.provider, `providers.${providerKey}.provider`);
+      this.requireString(provider.base_url, `providers.${providerKey}.base_url`);
+      this.requireHttpUrl(provider.base_url, `providers.${providerKey}.base_url`);
+      this.requireString(provider.api_key_env, `providers.${providerKey}.api_key_env`);
+      if (provider.auth_type !== undefined && !['api_key', 'bearer'].includes(provider.auth_type)) {
+        throw new Error(`providers.${providerKey}.auth_type must be api_key or bearer`);
+      }
+      if (!this.isRecord(provider.variants) || Object.keys(provider.variants).length === 0) {
+        throw new Error(`providers.${providerKey}.variants must be a non-empty object`);
+      }
+      if (provider.default_variant && !provider.variants[provider.default_variant]) {
+        throw new Error(
+          `providers.${providerKey}.default_variant '${provider.default_variant}' is not defined`
+        );
+      }
+      this.validateFallback(provider.fallback, `providers.${providerKey}.fallback`);
+      for (const [variantKey, variantValue] of Object.entries(provider.variants)) {
+        if (!this.isRecord(variantValue)) {
+          throw new Error(`providers.${providerKey}.variants.${variantKey} must be an object`);
+        }
+        const variant = variantValue as unknown as ProviderConfig['variants'][string];
+        this.requireString(variant.display_name, `providers.${providerKey}.variants.${variantKey}.display_name`);
+        this.requireString(variant.model_id, `providers.${providerKey}.variants.${variantKey}.model_id`);
+        this.validatePositiveInteger(
+          variant.max_tokens,
+          `providers.${providerKey}.variants.${variantKey}.max_tokens`
+        );
+        this.validatePositiveInteger(
+          variant.context_window,
+          `providers.${providerKey}.variants.${variantKey}.context_window`
+        );
+        this.validateFallback(
+          variant.fallback,
+          `providers.${providerKey}.variants.${variantKey}.fallback`
+        );
+      }
+    }
+
+    for (const [modelKey, modelValue] of Object.entries(config.models)) {
+      if (!this.isRecord(modelValue)) throw new Error(`models.${modelKey} must be an object`);
+      const model = modelValue as unknown as ModelConfig;
+      this.requireString(model.display_name, `models.${modelKey}.display_name`);
+      this.requireString(model.provider, `models.${modelKey}.provider`);
+      this.requireString(model.model_id, `models.${modelKey}.model_id`);
+      this.requireString(model.base_url, `models.${modelKey}.base_url`);
+      this.requireHttpUrl(model.base_url, `models.${modelKey}.base_url`);
+      this.requireString(model.api_key_env, `models.${modelKey}.api_key_env`);
+      this.validatePositiveInteger(model.max_tokens, `models.${modelKey}.max_tokens`);
+      this.validatePositiveInteger(model.context_window, `models.${modelKey}.context_window`);
+      this.validateFallback(model.fallback, `models.${modelKey}.fallback`);
+    }
+  }
+
+  private validatePositiveInteger(value: unknown, field: string): void {
+    if (value !== undefined && (!Number.isInteger(value) || (value as number) <= 0)) {
+      throw new Error(`${field} must be a positive integer`);
+    }
+  }
+
+  private requireHttpUrl(value: string, field: string): void {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error(`${field} must be a valid URL`);
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error(`${field} must use http or https`);
+    }
+  }
+
+  private applyGatewayEnvOverrides(config: RouterConfig): RouterConfig {
+    const gateway = { ...config.gateway };
+    if (process.env.GATEWAY_PORT) {
+      gateway.port = this.parsePositiveInteger(process.env.GATEWAY_PORT, 'GATEWAY_PORT', 65535);
+    }
+    if (process.env.REQUEST_TIMEOUT) {
+      gateway.timeout = this.parsePositiveNumber(process.env.REQUEST_TIMEOUT, 'REQUEST_TIMEOUT');
+    }
+    if (process.env.LOG_LEVEL) {
+      const level = process.env.LOG_LEVEL.trim().toUpperCase();
+      const allowed = new Set(['DEBUG', 'INFO', 'WARN', 'ERROR', 'SILENT']);
+      if (!allowed.has(level)) {
+        throw new Error('LOG_LEVEL must be DEBUG, INFO, WARN, ERROR, or SILENT');
+      }
+      gateway.log_level = level;
+    }
+    const next = { ...config, gateway };
+    this.validateConfigShape(next);
+    return next;
+  }
+
+  private parsePositiveInteger(value: string, field: string, maximum: number): number {
+    if (!/^\d+$/.test(value.trim())) throw new Error(`${field} must be a positive integer`);
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
+      throw new Error(`${field} must be between 1 and ${maximum}`);
+    }
+    return parsed;
+  }
+
+  private parsePositiveNumber(value: string, field: string): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) throw new Error(`${field} must be positive`);
+    return parsed;
   }
 
   private loadApiKeys(): void {
@@ -653,6 +866,56 @@ export class ConfigManager {
   }
 
   /**
+   * Stable, secret-free identity for the config and .env sources used by this
+   * process. Detached gateways are shared only when this identity matches the
+   * launching CLI, preventing one project from silently using another
+   * project's endpoints or credentials.
+   */
+  getSourceId(): string {
+    const routingConfig = {
+      defaultModel: this.config.default_model,
+      aliases: this.config.aliases,
+      models: this.config.models,
+    };
+    const credentialDigests = [...new Set(
+      Object.values(this.config.models).map((model) => model.api_key_env)
+    )]
+      .sort()
+      .map((name) => {
+        const value = process.env[name];
+        return [
+          name,
+          value ? crypto.createHash('sha256').update(value).digest('hex') : null,
+        ];
+      });
+    const descriptor = JSON.stringify({
+      configFile: this.configFilePath ? path.resolve(this.configFilePath) : null,
+      envFiles: this.getEnvFilePaths().map((file) => path.resolve(file)),
+      routingConfig,
+      credentialDigests,
+    });
+    return crypto.createHash('sha256').update(descriptor).digest('hex').slice(0, 24);
+  }
+
+  /** Existing .env sources, ordered from lower to higher precedence. */
+  getEnvFilePaths(): string[] {
+    return this.getEnvCandidatePaths().filter((file) => fs.existsSync(file));
+  }
+
+  /** All possible .env sources, including paths that do not exist yet. */
+  getEnvCandidatePaths(): string[] {
+    const configEnv = this.configFilePath
+      ? path.join(path.dirname(this.configFilePath), '.env')
+      : undefined;
+    const candidates = [
+      path.join(ccmrHome(), '.env'),
+      path.join(process.cwd(), '.env'),
+      configEnv,
+    ].filter((file): file is string => !!file);
+    return [...new Set(candidates)];
+  }
+
+  /**
    * Hot-reload: re-apply .env files and re-read the loaded config file.
    * A file that no longer parses keeps the previous working config
    * instead of silently degrading to defaults.
@@ -660,20 +923,17 @@ export class ConfigManager {
   reload(): void {
     this.applyEnvFiles();
 
-    if (this.configFilePath && fs.existsSync(this.configFilePath)) {
-      try {
-        const content = fs.readFileSync(this.configFilePath, 'utf-8');
-        const parsed = yaml.load(content) as Partial<RouterConfig> | null;
-        this.config = this.mergeConfig(parsed ?? {});
-      } catch (e) {
-        console.warn(
-          `Warning: reload failed, keeping previous config (${this.configFilePath}):`,
-          e instanceof Error ? e.message : e
-        );
-      }
-    } else {
-      // No file previously loaded (or it vanished) - rediscover
-      this.config = this.loadConfig(this.requestedConfigPath);
+    try {
+      const nextConfig =
+        this.configFilePath && fs.existsSync(this.configFilePath)
+          ? this.readConfigFile(this.configFilePath)
+          : this.loadConfig(this.requestedConfigPath);
+      this.config = this.applyGatewayEnvOverrides(nextConfig);
+    } catch (e) {
+      console.warn(
+        `Warning: reload failed, keeping previous config (${this.configFilePath ?? 'discovery'}):`,
+        e instanceof Error ? e.message : e
+      );
     }
 
     this.loadApiKeys();
@@ -684,15 +944,30 @@ export class ConfigManager {
    * global-first so ./.env keeps precedence over ~/.ccmr/.env.
    */
   private applyEnvFiles(): void {
-    const candidates = [path.join(ccmrHome(), '.env'), path.join(process.cwd(), '.env')];
-    for (const p of candidates) {
-      if (!fs.existsSync(p)) {
-        continue;
+    const candidates = this.getEnvFilePaths();
+    for (const [key, value] of this.managedEnvValues) {
+      // Do not erase a value that another runtime component deliberately
+      // replaced after we loaded it.
+      if (process.env[key] === value) {
+        delete process.env[key];
       }
+    }
+    this.managedEnvValues.clear();
+
+    const fileValues: Record<string, string> = {};
+    for (const p of candidates) {
       try {
-        Object.assign(process.env, dotenvParse(fs.readFileSync(p, 'utf-8')));
+        Object.assign(fileValues, dotenvParse(fs.readFileSync(p, 'utf-8')));
       } catch (e) {
         console.warn(`Warning: failed to re-read ${p}:`, e instanceof Error ? e.message : e);
+      }
+    }
+
+    // Shell/parent-process variables always win over .env files.
+    for (const [key, value] of Object.entries(fileValues)) {
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+        this.managedEnvValues.set(key, value);
       }
     }
   }
@@ -1179,5 +1454,13 @@ MIMO_PAYG_API_KEY=
 # When set, callers must send this token as "x-api-key" or "Authorization: Bearer <token>".
 # Leave empty only when the gateway stays bound to 127.0.0.1.
 CCMR_REQUIRED_AUTH_TOKEN=
+
+# Optional client-side override. ccmr claude/stats otherwise reuse the required token above.
+CCMR_AUTH_TOKEN=
+
+# Optional gateway overrides (CLI flags still have highest precedence).
+# GATEWAY_PORT=8080
+# REQUEST_TIMEOUT=300
+# LOG_LEVEL=INFO
 `;
 }

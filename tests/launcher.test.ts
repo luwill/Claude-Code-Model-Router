@@ -6,7 +6,12 @@ import { describe, it, expect, afterAll } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
-import { checkGatewayModel, probeGateway, waitForHealthy } from '../src/launcher.js';
+import {
+  checkGatewayModel,
+  checkGatewaySource,
+  probeGateway,
+  waitForHealthy,
+} from '../src/launcher.js';
 import { ccmrHome, gatewayLogFile } from '../src/paths.js';
 
 const cleanups: Array<() => void> = [];
@@ -94,6 +99,28 @@ describe('checkGatewayModel', () => {
 
   it('does not block when an older gateway omits the models map', () => {
     expect(checkGatewayModel({ version: '1.7.1' }, 'deepseek-v4-pro')).toEqual({ ok: true });
+  });
+});
+
+describe('checkGatewaySource', () => {
+  it('accepts a gateway created from the same config source', () => {
+    expect(checkGatewaySource({ config_source_id: 'same-source' }, 'same-source')).toEqual({
+      ok: true,
+    });
+  });
+
+  it('rejects a gateway from another project even when it is healthy', () => {
+    expect(checkGatewaySource({ config_source_id: 'project-a' }, 'project-b')).toEqual({
+      ok: false,
+      reason: 'source_mismatch',
+    });
+  });
+
+  it('requires an old gateway without source identity to be restarted', () => {
+    expect(checkGatewaySource({ version: '1.8.2' }, 'current-source')).toEqual({
+      ok: false,
+      reason: 'source_unknown',
+    });
   });
 });
 

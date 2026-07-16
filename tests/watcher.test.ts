@@ -59,7 +59,7 @@ describe('watchCandidates', () => {
   it('includes config and env paths that do not exist yet', () => {
     const home = tempHome();
     process.env.CCMR_HOME = home;
-    const manager = new ConfigManager('/nonexistent/models.yaml');
+    const manager = new ConfigManager(null);
 
     const candidates = watchCandidates(manager, '/some/cwd');
 

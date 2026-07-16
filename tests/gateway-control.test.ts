@@ -108,6 +108,7 @@ describe('stopGateway', () => {
     const server = servers[servers.length - 1];
 
     const result = await stopGateway(port, {
+      verifyIdentity: () => true,
       kill: (pid, signal) => {
         killed.push([pid, signal]);
         server.close(); // a real gateway would exit here
@@ -150,6 +151,7 @@ describe('stopGateway', () => {
     const port = await ccmrGateway({ version: '1.8.2', pid: 4242, models: {} });
 
     const result = await stopGateway(port, {
+      verifyIdentity: () => true,
       kill: () => {
         /* stubborn process: stays up */
       },
@@ -157,5 +159,18 @@ describe('stopGateway', () => {
     });
 
     expect(result).toEqual({ status: 'still_running', pid: 4242 });
+  });
+
+  it('refuses to signal a self-identified gateway without a matching local identity', async () => {
+    const killed: number[] = [];
+    const port = await ccmrGateway({ version: '1.8.3', pid: 4242, models: {} });
+
+    const result = await stopGateway(port, {
+      verifyIdentity: () => false,
+      kill: (pid) => killed.push(pid),
+    });
+
+    expect(result).toEqual({ status: 'unverified_gateway', pid: 4242 });
+    expect(killed).toEqual([]);
   });
 });

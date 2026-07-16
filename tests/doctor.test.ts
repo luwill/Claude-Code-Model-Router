@@ -142,7 +142,9 @@ providers:
     for (const model of Object.values(manager.getConfig().models)) {
       if (!model.api_key_env.startsWith('DOCTOR_') && !saved.has(model.api_key_env)) {
         saved.set(model.api_key_env, process.env[model.api_key_env]);
-        delete process.env[model.api_key_env];
+        // Keep an explicit empty parent value so constructing another manager
+        // cannot reload a real key from the repository .env file.
+        process.env[model.api_key_env] = '';
       }
     }
 

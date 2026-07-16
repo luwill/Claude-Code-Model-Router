@@ -96,6 +96,10 @@ export interface MessagesResponse {
     stop_sequence: string | null;
     usage: Usage;
 }
+export interface CountTokensResponse {
+    input_tokens: number;
+    [key: string]: unknown;
+}
 export interface ErrorResponse {
     type: 'error';
     error: {

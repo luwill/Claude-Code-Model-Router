@@ -20,11 +20,24 @@ exports.discoverGateways = discoverGateways;
 exports.stopGateway = stopGateway;
 const node_net_1 = __importDefault(require("node:net"));
 const launcher_js_1 = require("./launcher.js");
+const gateway_identity_js_1 = require("./gateway-identity.js");
 /** CLI default (8080), VSCode extension default (8088) and its fallback range. */
 exports.DEFAULT_SCAN_PORTS = Array.from({ length: 20 }, (_, i) => 8080 + i);
 /** A ccmr gateway always answers /health with a version string. */
 function isCcmrGateway(health) {
-    return !!health && typeof health.version === 'string';
+    if (!health ||
+        health.status !== 'healthy' ||
+        typeof health.version !== 'string') {
+        return false;
+    }
+    const service = health.service;
+    return service === undefined || service === 'claude-code-model-router';
+}
+function verifyRegisteredIdentity(port, health) {
+    const registered = (0, gateway_identity_js_1.readGatewayIdentity)(port);
+    return (!!registered &&
+        registered.pid === health.pid &&
+        registered.instanceId === health.instance_id);
 }
 function isPortOpen(port, timeoutMs = 300) {
     return new Promise((resolve) => {
@@ -71,6 +84,10 @@ async function stopGateway(port, options = {}) {
     }
     if (typeof health.pid !== 'number') {
         return { status: 'no_pid', version: health.version };
+    }
+    const verifyIdentity = options.verifyIdentity ?? verifyRegisteredIdentity;
+    if (!verifyIdentity(port, health)) {
+        return { status: 'unverified_gateway', pid: health.pid };
     }
     const pid = health.pid;
     kill(pid, 'SIGTERM');

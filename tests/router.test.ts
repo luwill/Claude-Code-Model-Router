@@ -28,7 +28,7 @@ function makeRequest(overrides: Partial<MessagesRequest> = {}): MessagesRequest 
   };
 }
 
-const manager = new ConfigManager('/nonexistent/models.yaml');
+const manager = new ConfigManager(null);
 const router = new ModelRouter(manager);
 
 describe('ModelRouter.buildUrl', () => {
@@ -59,6 +59,15 @@ describe('ModelRouter.buildUrl', () => {
   it('strips trailing slashes before joining', () => {
     expect(router.buildUrl(makeModelConfig({ base_url: 'https://api.example.com/anthropic/' })))
       .toBe('https://api.example.com/anthropic/v1/messages');
+  });
+
+  it('uses the requested compatible endpoint for token counting', () => {
+    expect(
+      router.buildUrl(
+        makeModelConfig({ base_url: 'https://api.example.com/anthropic/' }),
+        '/v1/messages/count_tokens'
+      )
+    ).toBe('https://api.example.com/anthropic/v1/messages/count_tokens');
   });
 });
 
@@ -173,8 +182,9 @@ describe('ModelRouter.resolveRoute', () => {
   });
 
   it('throws 401 with the env var name when the API key is missing', () => {
-    delete process.env.KIMI_API_KEY;
-    const localRouter = new ModelRouter(new ConfigManager('/nonexistent/models.yaml'));
+    // An explicit empty parent-process value wins over any developer .env.
+    process.env.KIMI_API_KEY = '';
+    const localRouter = new ModelRouter(new ConfigManager(null));
     try {
       localRouter.resolveRoute('kimi-k2.6');
       expect.unreachable('should have thrown');
@@ -187,11 +197,89 @@ describe('ModelRouter.resolveRoute', () => {
 
   it('resolves aliases end-to-end when the key is present', () => {
     process.env.KIMI_API_KEY = 'sk-live';
-    const localManager = new ConfigManager('/nonexistent/models.yaml');
+    const localManager = new ConfigManager(null);
     const localRouter = new ModelRouter(localManager);
     const route = localRouter.resolveRoute('kimi-code');
     expect(route.name).toBe('kimi-k2.7-code');
     expect(route.config.model_id).toBe('kimi-k2.7-code');
     expect(route.apiKey).toBe('sk-live');
+  });
+});
+
+describe('ModelRouter streaming byte handling', () => {
+  it('preserves a multibyte UTF-8 character split across network chunks', async () => {
+    const text = 'event: content_block_delta\ndata: {"text":"中文"}\n\n';
+    const bytes = new TextEncoder().encode(text);
+    const splitAt = bytes.indexOf(0xe4) + 1;
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes.slice(0, splitAt));
+          controller.enqueue(bytes.slice(splitAt));
+          controller.close();
+        },
+      })
+    );
+    const route = { name: 'test', config: makeModelConfig(), apiKey: 'sk-test' };
+    const chunks: string[] = [];
+
+    for await (const chunk of (router as any).streamBody(
+      route,
+      response,
+      new AbortController(),
+      1000
+    )) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.join('')).toBe(text);
+    expect(chunks.join('')).not.toContain('�');
+  });
+
+  it('emits CRLF-delimited SSE events without waiting for the entire stream', async () => {
+    const first = 'event: one\r\ndata: {"value":1}\r\n\r\n';
+    const second = 'event: two\r\ndata: {"value":2}\r\n\r\n';
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(first + second));
+          controller.close();
+        },
+      })
+    );
+    const route = { name: 'test', config: makeModelConfig(), apiKey: 'sk-test' };
+    const chunks: string[] = [];
+
+    for await (const chunk of (router as any).streamBody(
+      route,
+      response,
+      new AbortController(),
+      1000
+    )) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual([first, second]);
+  });
+});
+
+describe('ModelRouter capability enforcement', () => {
+  it('returns an SSE error before connecting when streaming is unsupported', async () => {
+    const localManager = new ConfigManager(null);
+    process.env.KIMI_API_KEY = 'sk-test';
+    localManager.reloadApiKeys();
+    localManager.getConfig().models['kimi-k2.6'].supports_streaming = false;
+    const localRouter = new ModelRouter(localManager);
+    const events: string[] = [];
+
+    for await (const event of localRouter.forwardStream(
+      makeRequest({ model: 'kimi-k2.6', stream: true }),
+      {}
+    )) {
+      events.push(event);
+    }
+
+    expect(events.join('')).toContain('unsupported_feature');
+    delete process.env.KIMI_API_KEY;
   });
 });

@@ -11,40 +11,169 @@ import { UsageTracker } from './usage.js';
 import type { MessagesRequest } from './types.js';
 import { VERSION } from './version.js';
 import { ConfigWatcher } from './watcher.js';
+import { isInfoLoggingEnabled } from './logging.js';
+import { newGatewayInstanceId, writeGatewayIdentity } from './gateway-identity.js';
 
-export function createServer(configManager: ConfigManager) {
+function requiredAuthToken(): string {
+  return (process.env.CCMR_REQUIRED_AUTH_TOKEN ?? '').trim();
+}
+
+function requestToken(req: Request): string {
+  const raw = req.headers['x-api-key'] ?? req.headers.authorization ?? '';
+  return String(raw).replace(/^Bearer\s+/i, '').trim();
+}
+
+function isAuthorized(req: Request, token = requiredAuthToken()): boolean {
+  return token.length > 0 && tokensEqual(requestToken(req), token);
+}
+
+function isLoopbackRequest(req: Request): boolean {
+  const address = req.socket.remoteAddress ?? '';
+  return (
+    address === '::1' ||
+    address === '127.0.0.1' ||
+    address === '::ffff:127.0.0.1' ||
+    address.startsWith('127.')
+  );
+}
+
+function clientAbortController(req: Request, res: Response): {
+  controller: AbortController;
+  cleanup: () => void;
+} {
+  const controller = new AbortController();
+  const abort = () => {
+    if (!res.writableEnded && !controller.signal.aborted) {
+      controller.abort(new Error('Client disconnected'));
+    }
+  };
+  req.once('aborted', abort);
+  res.once('close', abort);
+  return {
+    controller,
+    cleanup: () => {
+      req.off('aborted', abort);
+      res.off('close', abort);
+    },
+  };
+}
+
+async function writeWithBackpressure(
+  res: Response,
+  chunk: string,
+  signal: AbortSignal
+): Promise<boolean> {
+  if (signal.aborted || res.destroyed) {
+    return false;
+  }
+  if (res.write(chunk)) {
+    return true;
+  }
+
+  await new Promise<void>((resolve) => {
+    const done = () => {
+      res.off('drain', done);
+      res.off('close', done);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    res.once('drain', done);
+    res.once('close', done);
+    signal.addEventListener('abort', done, { once: true });
+  });
+  return !signal.aborted && !res.destroyed;
+}
+
+function requestValidationError(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return 'Request body must be a JSON object';
+  }
+  const request = body as Partial<MessagesRequest>;
+  if (request.model !== undefined && (typeof request.model !== 'string' || !request.model.trim())) {
+    return 'model must be a non-empty string';
+  }
+  if (!Array.isArray(request.messages) || request.messages.length === 0) {
+    return 'messages must be a non-empty array';
+  }
+  for (const [index, message] of request.messages.entries()) {
+    if (!message || (message.role !== 'user' && message.role !== 'assistant')) {
+      return `messages[${index}].role must be user or assistant`;
+    }
+    if (typeof message.content !== 'string' && !Array.isArray(message.content)) {
+      return `messages[${index}].content must be a string or content-block array`;
+    }
+  }
+  if (
+    request.max_tokens !== undefined &&
+    (!Number.isInteger(request.max_tokens) || request.max_tokens <= 0)
+  ) {
+    return 'max_tokens must be a positive integer';
+  }
+  if (request.stream !== undefined && typeof request.stream !== 'boolean') {
+    return 'stream must be a boolean';
+  }
+  if (request.tools !== undefined && !Array.isArray(request.tools)) {
+    return 'tools must be an array';
+  }
+  return null;
+}
+
+function originalAnthropicHeaders(req: Request): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (req.headers['anthropic-beta']) {
+    headers['anthropic-beta'] = String(req.headers['anthropic-beta']);
+  }
+  if (req.headers['anthropic-version']) {
+    headers['anthropic-version'] = String(req.headers['anthropic-version']);
+  }
+  return headers;
+}
+
+function sendInvalidRequest(res: Response, message: string): void {
+  res.status(400).json({
+    type: 'error',
+    error: { type: 'invalid_request_error', message },
+  });
+}
+
+export interface CreateServerOptions {
+  instanceId?: string;
+}
+
+export function createServer(configManager: ConfigManager, options: CreateServerOptions = {}) {
   const app = express();
+  const instanceId = options.instanceId ?? newGatewayInstanceId();
   const usageTracker = new UsageTracker();
   const router = new ModelRouter(configManager, usageTracker);
-
-  // Middleware
-  app.use(express.json({ limit: '50mb' }));
 
   // Optional inbound auth: when CCMR_REQUIRED_AUTH_TOKEN is set, /v1/* and
   // /usage require it. /health is always reachable so liveness probes work
   // without credentials.
-  const requiredToken = process.env.CCMR_REQUIRED_AUTH_TOKEN;
-  if (requiredToken && requiredToken.length > 0) {
-    app.use((req: Request, res: Response, next: NextFunction) => {
-      if (!req.path.startsWith('/v1/') && req.path !== '/usage') {
-        return next();
-      }
-      const raw = req.headers['x-api-key'] ?? req.headers.authorization ?? '';
-      const got = String(raw).replace(/^Bearer\s+/i, '').trim();
-      if (!tokensEqual(got, requiredToken)) {
-        res.status(401).json({
-          type: 'error',
-          error: { type: 'authentication_error', message: 'invalid CCMR auth token' },
-        });
-        return;
-      }
-      next();
-    });
-  }
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!req.path.startsWith('/v1/') && req.path !== '/usage') {
+      return next();
+    }
+    const token = requiredAuthToken();
+    if (token.length === 0) {
+      return next();
+    }
+    if (!isAuthorized(req, token)) {
+      res.status(401).json({
+        type: 'error',
+        error: { type: 'authentication_error', message: 'invalid CCMR auth token' },
+      });
+      return;
+    }
+    next();
+  });
+
+  // Parse only after authentication, so an unauthenticated network client
+  // cannot force allocation of the full request-body limit.
+  app.use(express.json({ limit: '32mb', strict: true }));
 
   // Logging middleware (reads config per request so hot-reload applies)
   app.use((req: Request, _res: Response, next: NextFunction) => {
-    if (configManager.getConfig().gateway.enable_logging && req.path !== '/health') {
+    if (isInfoLoggingEnabled(configManager.getConfig().gateway) && req.path !== '/health') {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     }
     next();
@@ -53,6 +182,7 @@ export function createServer(configManager: ConfigManager) {
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
     const config = configManager.getConfig();
+    const includeDetails = isLoopbackRequest(_req) || isAuthorized(_req);
     const models: Record<string, string> = {};
     for (const [name, model] of Object.entries(config.models)) {
       if (model.provider_key && name === model.provider_key) {
@@ -61,19 +191,29 @@ export function createServer(configManager: ConfigManager) {
       models[name] = configManager.getApiKey(name) ? 'available' : 'no_api_key';
     }
 
-    res.json({
+    const health: Record<string, unknown> = {
       status: 'healthy',
+      service: 'claude-code-model-router',
       version: VERSION,
       default_model: config.default_model,
+    };
+
+    if (includeDetails) {
+      Object.assign(health, {
       // Config provenance: without it, "which config is this gateway using?"
       // can only be answered by inspecting the process's open files.
       config_file: configManager.getConfigFilePath(),
       ccmr_home: ccmrHome(),
+      config_source_id: configManager.getSourceId(),
       // Lets `ccmr stop` target this process without parsing lsof/netstat,
       // and guarantees it can only ever signal a self-identified gateway.
       pid: process.pid,
+      instance_id: instanceId,
       models,
-    });
+      });
+    }
+
+    res.json(health);
   });
 
   // List models
@@ -97,7 +237,13 @@ export function createServer(configManager: ConfigManager) {
 
   // Messages endpoint
   app.post('/v1/messages', async (req: Request, res: Response) => {
+    const client = clientAbortController(req, res);
     try {
+      const validationError = requestValidationError(req.body);
+      if (validationError) {
+        sendInvalidRequest(res, validationError);
+        return;
+      }
       const body = req.body as MessagesRequest;
       const config = configManager.getConfig();
 
@@ -107,13 +253,7 @@ export function createServer(configManager: ConfigManager) {
       }
 
       // Get original headers for forwarding
-      const originalHeaders: Record<string, string> = {};
-      if (req.headers['anthropic-beta']) {
-        originalHeaders['anthropic-beta'] = req.headers['anthropic-beta'] as string;
-      }
-      if (req.headers['anthropic-version']) {
-        originalHeaders['anthropic-version'] = req.headers['anthropic-version'] as string;
-      }
+      const originalHeaders = originalAnthropicHeaders(req);
 
       // Get model display name for headers
       const modelConfig = configManager.getModel(body.model);
@@ -126,29 +266,41 @@ export function createServer(configManager: ConfigManager) {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
-        res.setHeader('X-Model-Router', modelDisplayName);
+        res.setHeader('X-Model-Router-Requested', modelDisplayName);
         res.flushHeaders();
 
         // Stream the response
-        for await (const chunk of router.forwardStream(body, originalHeaders)) {
-          res.write(chunk);
+        for await (const chunk of router.forwardStream(
+          body,
+          originalHeaders,
+          client.controller.signal
+        )) {
+          if (!(await writeWithBackpressure(res, chunk, client.controller.signal))) {
+            break;
+          }
           // Flush immediately for real-time streaming
           if (typeof (res as any).flush === 'function') {
             (res as any).flush();
           }
         }
-        res.end();
+        if (!res.destroyed) {
+          res.end();
+        }
       } else {
         // Non-streaming response
-        const response = await router.forwardRequest(body, originalHeaders);
-
-        if (config.gateway.enable_logging) {
-          res.setHeader('X-Model-Router', modelDisplayName);
-        }
+        const response = await router.forwardRequest(
+          body,
+          originalHeaders,
+          client.controller.signal,
+          (route) => res.setHeader('X-Model-Router', route.config.display_name)
+        );
 
         res.json(response);
       }
     } catch (error) {
+      if (client.controller.signal.aborted) {
+        return;
+      }
       // Check if headers already sent (streaming started)
       if (res.headersSent) {
         // For streaming, send error as SSE event and end
@@ -174,6 +326,8 @@ export function createServer(configManager: ConfigManager) {
           },
         });
       }
+    } finally {
+      client.cleanup();
     }
   });
 
@@ -182,15 +336,39 @@ export function createServer(configManager: ConfigManager) {
     res.json(usageTracker.snapshot());
   });
 
-  // Token counting (not implemented)
-  app.post('/v1/messages/count_tokens', (_req: Request, res: Response) => {
-    res.status(501).json({
-      type: 'error',
-      error: {
-        type: 'not_implemented',
-        message: 'Token counting is not yet implemented',
-      },
-    });
+  // Token counting is proxied to the selected provider's compatible endpoint.
+  app.post('/v1/messages/count_tokens', async (req: Request, res: Response) => {
+    const client = clientAbortController(req, res);
+    try {
+      const validationError = requestValidationError(req.body);
+      if (validationError) {
+        sendInvalidRequest(res, validationError);
+        return;
+      }
+      const body = req.body as MessagesRequest;
+      if (!body.model) {
+        body.model = configManager.getConfig().default_model;
+      }
+      const response = await router.forwardCountTokens(
+        body,
+        originalAnthropicHeaders(req),
+        client.controller.signal
+      );
+      res.json(response);
+    } catch (error) {
+      if (client.controller.signal.aborted) return;
+      if (error instanceof RouterError) {
+        res.status(error.statusCode).json(error.toErrorResponse());
+      } else {
+        console.error('Unexpected count_tokens error:', error);
+        res.status(500).json({
+          type: 'error',
+          error: { type: 'internal_error', message: 'Token counting failed' },
+        });
+      }
+    } finally {
+      client.cleanup();
+    }
   });
 
   // 404 handler
@@ -205,13 +383,23 @@ export function createServer(configManager: ConfigManager) {
   });
 
   // Error handler
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Server error:', err);
-    res.status(500).json({
+  app.use((err: Error & { status?: number; statusCode?: number; type?: string }, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status ?? err.statusCode ?? 500;
+    const safeStatus = status >= 400 && status < 600 ? status : 500;
+    if (safeStatus >= 500) {
+      console.error('Server error:', err);
+    }
+    const message =
+      err.type === 'entity.too.large'
+        ? 'Request body exceeds the 32 MB limit'
+        : safeStatus < 500
+          ? err.message
+          : 'Internal server error';
+    res.status(safeStatus).json({
       type: 'error',
       error: {
-        type: 'internal_error',
-        message: err.message,
+        type: safeStatus < 500 ? 'invalid_request_error' : 'internal_error',
+        message,
       },
     });
   });
@@ -281,21 +469,38 @@ function startWatching(configManager: ConfigManager, host: string, port: number)
   return watcher;
 }
 
-export function startServer(configManager: ConfigManager): void {
-  const app = createServer(configManager);
+export interface StartServerOptions {
+  /** Explicit escape hatch for trusted isolated networks. */
+  allowInsecureNetwork?: boolean;
+}
+
+export function startServer(
+  configManager: ConfigManager,
+  options: StartServerOptions = {}
+): void {
   const config = configManager.getConfig();
   const { host, port } = config.gateway;
 
-  const authEnabled = !!(process.env.CCMR_REQUIRED_AUTH_TOKEN ?? '').trim();
-  if (!LOOPBACK_HOSTS.has(host) && !authEnabled) {
-    console.warn('');
-    console.warn('\x1b[33m[WARNING]\x1b[0m Gateway is binding to a non-loopback address');
-    console.warn(`  (host="${host}") with NO inbound authentication.`);
-    console.warn('  Anyone who can reach this address can spend your provider API keys.');
-    console.warn('  Set CCMR_REQUIRED_AUTH_TOKEN to require a token, or bind to 127.0.0.1.');
+  const authEnabled = requiredAuthToken().length > 0;
+  if (!LOOPBACK_HOSTS.has(host) && !authEnabled && !options.allowInsecureNetwork) {
+    throw new Error(
+      `Refusing to bind unauthenticated gateway to non-loopback host "${host}". ` +
+        'Set CCMR_REQUIRED_AUTH_TOKEN or pass --allow-insecure-network.'
+    );
   }
 
+  const instanceId = newGatewayInstanceId();
+  const app = createServer(configManager, { instanceId });
+
   const server = app.listen(port, host, () => {
+    try {
+      writeGatewayIdentity(port, instanceId);
+    } catch (error) {
+      console.warn(
+        '[WARNING] Could not write the local gateway identity record; ccmr stop will refuse to signal this process:',
+        error instanceof Error ? error.message : error
+      );
+    }
     const displayHost = LOOPBACK_HOSTS.has(host) ? 'localhost' : host;
     console.log('');
     console.log('============================================================');

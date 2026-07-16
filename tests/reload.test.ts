@@ -77,6 +77,35 @@ describe('ConfigManager.reload', () => {
     expect(manager.getApiKey('reload-model-v2')).toBe('sk-appeared-later');
   });
 
+  it('revokes an API key removed from a managed .env file', () => {
+    const home = tempDir('ccmr-home-');
+    const configFile = path.join(home, 'models.yaml');
+    const envFile = path.join(home, '.env');
+    fs.writeFileSync(configFile, CONFIG_V2);
+    fs.writeFileSync(envFile, 'RELOAD_TEST_KEY=sk-temporary\n');
+    process.env.CCMR_HOME = home;
+
+    const manager = new ConfigManager(configFile);
+    expect(manager.getApiKey('reload-model-v2')).toBe('sk-temporary');
+
+    fs.writeFileSync(envFile, '');
+    manager.reload();
+
+    expect(manager.getApiKey('reload-model-v2')).toBeUndefined();
+    expect(process.env.RELOAD_TEST_KEY).toBeUndefined();
+  });
+
+  it('loads an .env next to an explicit config outside cwd', () => {
+    const dir = tempDir('ccmr-explicit-');
+    const file = path.join(dir, 'models.yaml');
+    fs.writeFileSync(file, CONFIG_V2);
+    fs.writeFileSync(path.join(dir, '.env'), 'RELOAD_TEST_KEY=sk-adjacent\n');
+
+    const manager = new ConfigManager(file);
+    expect(manager.getApiKey('reload-model-v2')).toBe('sk-adjacent');
+    expect(manager.getEnvFilePaths()).toContain(path.join(dir, '.env'));
+  });
+
   it('keeps the previous config when the file becomes unparseable', () => {
     const dir = tempDir('ccmr-reload-');
     const file = path.join(dir, 'models.yaml');

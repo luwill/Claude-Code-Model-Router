@@ -27,6 +27,7 @@ export interface DoctorResult {
 }
 
 const DEFAULT_DOCTOR_TIMEOUT_SECONDS = 30;
+const DEFAULT_DOCTOR_CONCURRENCY = 3;
 
 export async function checkModels(
   configManager: ConfigManager,
@@ -46,7 +47,18 @@ export async function checkModels(
       .filter(([name, model]) => !(model.provider_key && name === model.provider_key))
       .map(([name]) => name);
 
-  return Promise.all(targets.map((name) => checkOne(configManager, router, name)));
+  const results = new Array<DoctorResult>(targets.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < targets.length) {
+      const index = nextIndex++;
+      results[index] = await checkOne(configManager, router, targets[index]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(DEFAULT_DOCTOR_CONCURRENCY, targets.length) }, worker)
+  );
+  return results;
 }
 
 async function checkOne(

@@ -4,6 +4,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelRouter = exports.RouterError = void 0;
+const logging_js_1 = require("./logging.js");
 class RouterError extends Error {
     statusCode;
     errorType;
@@ -40,6 +41,19 @@ function parseUpstreamErrorMessage(errorText) {
         return errorText;
     }
 }
+function linkAbortSignal(controller, signal) {
+    if (!signal) {
+        return () => undefined;
+    }
+    const abort = () => controller.abort(signal.reason);
+    if (signal.aborted) {
+        abort();
+    }
+    else {
+        signal.addEventListener('abort', abort, { once: true });
+    }
+    return () => signal.removeEventListener('abort', abort);
+}
 class ModelRouter {
     configManager;
     usageTracker;
@@ -48,7 +62,7 @@ class ModelRouter {
         this.usageTracker = usageTracker;
     }
     isLoggingEnabled() {
-        return this.configManager.getConfig().gateway.enable_logging;
+        return (0, logging_js_1.isInfoLoggingEnabled)(this.configManager.getConfig().gateway);
     }
     resolveRoute(modelName) {
         const resolvedName = this.configManager.resolveModelName(modelName);
@@ -115,6 +129,14 @@ class ModelRouter {
         this.normalizeProviderRequestBody(body, modelConfig);
         return body;
     }
+    validateCapabilities(route, request) {
+        if (request.stream && route.config.supports_streaming === false) {
+            throw new RouterError(`Model '${route.name}' does not support streaming`, 400, 'unsupported_feature');
+        }
+        if (request.tools && request.tools.length > 0 && route.config.supports_tools === false) {
+            throw new RouterError(`Model '${route.name}' does not support tools`, 400, 'unsupported_feature');
+        }
+    }
     normalizeProviderRequestBody(body, modelConfig) {
         if (modelConfig.provider === 'deepseek') {
             this.normalizeDeepSeekRequestBody(body);
@@ -127,20 +149,11 @@ class ModelRouter {
         delete body.user_id;
     }
     buildUrl(modelConfig, endpoint = '/v1/messages') {
-        let baseUrl = modelConfig.base_url.replace(/\/$/, '');
-        // Handle different API structures
-        if (modelConfig.provider === 'anthropic') {
-            return `${baseUrl}${endpoint}`;
-        }
-        // For other providers with /anthropic or /coding in base URL
-        if (baseUrl.includes('/anthropic') ||
-            baseUrl.includes('/coding') ||
-            baseUrl.includes('/apps/anthropic')) {
-            return `${baseUrl}/v1/messages`;
-        }
-        return `${baseUrl}${endpoint}`;
+        const baseUrl = modelConfig.base_url.replace(/\/$/, '');
+        const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        return `${baseUrl}${normalizedEndpoint}`;
     }
-    async forwardRequest(request, originalHeaders) {
+    async forwardRequest(request, originalHeaders, signal, onRoute) {
         const chain = this.buildChain(request.model);
         let lastError = null;
         for (let i = 0; i < chain.length; i++) {
@@ -156,7 +169,8 @@ class ModelRouter {
                 continue; // Skip fallbacks that are unknown or missing a key
             }
             try {
-                const response = await this.attemptRequest(route, request, originalHeaders);
+                const response = await this.attemptRequest(route, request, originalHeaders, signal);
+                onRoute?.(route);
                 this.usageTracker?.record(route.name, response.usage ?? {});
                 if (this.isLoggingEnabled()) {
                     console.log(`[${route.config.display_name}] Request completed | ` +
@@ -183,7 +197,8 @@ class ModelRouter {
         }
         throw lastError ?? new RouterError('No usable model in fallback chain', 500, 'internal_error');
     }
-    async attemptRequest(route, request, originalHeaders) {
+    async attemptRequest(route, request, originalHeaders, signal) {
+        this.validateCapabilities(route, request);
         const headers = this.buildHeaders(route, originalHeaders);
         const body = this.buildRequestBody(request, route.config);
         const url = this.buildUrl(route.config);
@@ -191,6 +206,7 @@ class ModelRouter {
         body.stream = false;
         const timeout = this.configManager.getConfig().gateway.timeout * 1000;
         const controller = new AbortController();
+        const unlinkAbort = linkAbortSignal(controller, signal);
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
             const response = await fetch(url, {
@@ -211,6 +227,9 @@ class ModelRouter {
             }
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
+                    if (signal?.aborted) {
+                        throw new RouterError('Client disconnected', 499, 'request_aborted');
+                    }
                     throw new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error');
                 }
                 throw new RouterError(`Connection error: ${error.message}`, 502, 'connection_error');
@@ -219,13 +238,57 @@ class ModelRouter {
         }
         finally {
             clearTimeout(timeoutId);
+            unlinkAbort();
         }
     }
-    async *forwardStream(request, originalHeaders) {
+    async forwardCountTokens(request, originalHeaders, signal) {
+        const route = this.resolveRoute(request.model);
+        this.validateCapabilities(route, { ...request, stream: false });
+        const headers = this.buildHeaders(route, originalHeaders);
+        const body = this.buildRequestBody(request, route.config);
+        delete body.stream;
+        const url = this.buildUrl(route.config, '/v1/messages/count_tokens');
+        const timeout = this.configManager.getConfig().gateway.timeout * 1000;
+        const controller = new AbortController();
+        const unlinkAbort = linkAbortSignal(controller, signal);
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new RouterError(`Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`, response.status, 'api_error');
+            }
+            return (await response.json());
+        }
+        catch (error) {
+            if (error instanceof RouterError)
+                throw error;
+            if (error instanceof Error && error.name === 'AbortError') {
+                if (signal?.aborted) {
+                    throw new RouterError('Client disconnected', 499, 'request_aborted');
+                }
+                throw new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error');
+            }
+            throw new RouterError(`Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`, 502, 'connection_error');
+        }
+        finally {
+            clearTimeout(timeoutId);
+            unlinkAbort();
+        }
+    }
+    async *forwardStream(request, originalHeaders, signal) {
         const chain = this.buildChain(request.model);
         const timeout = this.configManager.getConfig().gateway.timeout * 1000;
         let lastError = null;
         for (let i = 0; i < chain.length; i++) {
+            if (signal?.aborted) {
+                return;
+            }
             let route;
             try {
                 route = this.resolveRoute(chain[i]);
@@ -241,11 +304,23 @@ class ModelRouter {
                 continue;
             }
             const headers = this.buildHeaders(route, originalHeaders);
-            const body = this.buildRequestBody(request, route.config);
+            let body;
+            try {
+                this.validateCapabilities(route, request);
+                body = this.buildRequestBody(request, route.config);
+            }
+            catch (error) {
+                const routerError = error instanceof RouterError
+                    ? error
+                    : new RouterError('Unknown error occurred', 500, 'internal_error');
+                yield this.formatErrorEvent(routerError.errorType, routerError.message);
+                return;
+            }
             const url = this.buildUrl(route.config);
             body.stream = true;
             headers.Accept = 'text/event-stream';
             const controller = new AbortController();
+            const unlinkAbort = linkAbortSignal(controller, signal);
             const connectTimer = setTimeout(() => controller.abort(), timeout);
             let response;
             try {
@@ -258,6 +333,11 @@ class ModelRouter {
             }
             catch (error) {
                 clearTimeout(connectTimer);
+                unlinkAbort();
+                if (signal?.aborted) {
+                    this.usageTracker?.recordError(route.name);
+                    return;
+                }
                 const routerError = error instanceof Error && error.name === 'AbortError'
                     ? new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error')
                     : new RouterError(`Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`, 502, 'connection_error');
@@ -272,7 +352,13 @@ class ModelRouter {
             }
             clearTimeout(connectTimer);
             if (!response.ok) {
-                const errorText = await response.text();
+                let errorText;
+                try {
+                    errorText = await response.text();
+                }
+                finally {
+                    unlinkAbort();
+                }
                 const routerError = new RouterError(parseUpstreamErrorMessage(errorText), response.status, 'api_error');
                 this.usageTracker?.recordError(route.name);
                 lastError = routerError;
@@ -285,20 +371,27 @@ class ModelRouter {
             }
             // Connected: stream the body. No failover past this point - the
             // client may already have received partial output.
-            yield* this.streamBody(route, response, controller, timeout);
+            try {
+                yield* this.streamBody(route, response, controller, timeout, signal);
+            }
+            finally {
+                unlinkAbort();
+            }
             return;
         }
         const message = lastError?.message ?? 'No usable model in fallback chain';
         yield this.formatErrorEvent(lastError?.errorType ?? 'internal_error', message);
     }
-    async *streamBody(route, response, controller, timeoutMs) {
+    async *streamBody(route, response, controller, timeoutMs, clientSignal) {
         if (!response.body) {
             this.usageTracker?.recordError(route.name);
             yield this.formatErrorEvent('internal_error', 'No response body');
             return;
         }
         const usage = { input: 0, output: 0 };
+        const decoder = new TextDecoder();
         let buffer = '';
+        let usedByteDecoder = false;
         let eventCount = 0;
         // Idle watchdog: a stream that stops producing chunks for the full
         // gateway timeout is aborted instead of hanging the connection forever.
@@ -311,19 +404,28 @@ class ModelRouter {
         try {
             for await (const value of response.body) {
                 lastChunkAt = Date.now();
-                const chunk = typeof value === 'string' ? value : Buffer.from(value).toString('utf-8');
+                const chunk = typeof value === 'string'
+                    ? value
+                    : ((usedByteDecoder = true), decoder.decode(value, { stream: true }));
                 buffer += chunk;
                 // Process complete SSE events
-                while (buffer.includes('\n\n')) {
-                    const idx = buffer.indexOf('\n\n');
+                while (true) {
+                    const delimiter = /\r?\n\r?\n/.exec(buffer);
+                    if (!delimiter || delimiter.index === undefined) {
+                        break;
+                    }
+                    const idx = delimiter.index;
                     const event = buffer.slice(0, idx);
-                    buffer = buffer.slice(idx + 2);
+                    buffer = buffer.slice(idx + delimiter[0].length);
                     if (event.trim()) {
                         eventCount++;
                         this.accumulateStreamUsage(event, usage);
-                        yield event + '\n\n';
+                        yield event + delimiter[0];
                     }
                 }
+            }
+            if (usedByteDecoder) {
+                buffer += decoder.decode();
             }
             // Don't forget remaining data
             if (buffer.trim()) {
@@ -341,6 +443,9 @@ class ModelRouter {
         }
         catch (error) {
             this.usageTracker?.recordError(route.name);
+            if (clientSignal?.aborted) {
+                return;
+            }
             let errorMessage = 'Unknown error';
             let errorType = 'internal_error';
             if (error instanceof Error) {
@@ -363,7 +468,7 @@ class ModelRouter {
         if (!event.includes('"usage"')) {
             return;
         }
-        const dataLine = event.split('\n').find((line) => line.startsWith('data:'));
+        const dataLine = event.split(/\r?\n/).find((line) => line.startsWith('data:'));
         if (!dataLine) {
             return;
         }

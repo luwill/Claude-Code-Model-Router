@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe('ConfigManager: provider -> model expansion', () => {
-  const manager = new ConfigManager('/nonexistent/models.yaml');
+  const manager = new ConfigManager(null);
   const config = manager.getConfig();
 
   it('expands provider variants into <provider>-<variant> model keys', () => {
@@ -59,7 +59,7 @@ describe('ConfigManager: provider -> model expansion', () => {
 });
 
 describe('ConfigManager: alias resolution', () => {
-  const manager = new ConfigManager('/nonexistent/models.yaml');
+  const manager = new ConfigManager(null);
 
   it('resolves aliases to model keys', () => {
     expect(manager.resolveModelName('seed')).toBe('seed-2.1-pro');
@@ -77,6 +77,12 @@ describe('ConfigManager: alias resolution', () => {
 });
 
 describe('ConfigManager: user config merging', () => {
+  it('fails closed when an explicit config path does not exist', () => {
+    expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(
+      'Config file not found'
+    );
+  });
+
   it('user file overrides default_model and adds providers', () => {
     const file = writeTempConfig(`
 default_model: my-model-v1
@@ -123,6 +129,19 @@ providers:
     // Sibling variants from defaults survive the merge
     expect(config.models['kimi-k2.7-code']).toBeDefined();
   });
+
+  it('rejects invalid gateway values before the server starts', () => {
+    const file = writeTempConfig('gateway:\n  port: 70000\n');
+    expect(() => new ConfigManager(file)).toThrow('gateway.port');
+  });
+
+  it('supports chained aliases and rejects alias cycles', () => {
+    const chained = writeTempConfig('aliases:\n  fast: kimi\n');
+    expect(new ConfigManager(chained).resolveModelName('fast')).toBe('kimi-k2.6');
+
+    const cyclic = writeTempConfig('aliases:\n  cycle-a: cycle-b\n  cycle-b: cycle-a\n');
+    expect(() => new ConfigManager(cyclic)).toThrow('Alias cycle');
+  });
 });
 
 describe('ConfigManager: API key discovery', () => {
@@ -132,14 +151,15 @@ describe('ConfigManager: API key discovery', () => {
 
   it('marks models available when their env var is set', () => {
     process.env.KIMI_API_KEY = 'test-key-123';
-    const manager = new ConfigManager('/nonexistent/models.yaml');
+    const manager = new ConfigManager(null);
     expect(manager.getApiKey('kimi-k2.6')).toBe('test-key-123');
     expect(manager.getApiKey('kimi-code')).toBe('test-key-123'); // via alias
   });
 
   it('returns undefined when the env var is missing', () => {
-    delete process.env.KIMI_API_KEY;
-    const manager = new ConfigManager('/nonexistent/models.yaml');
+    // An explicit empty parent value must win over any project .env value.
+    process.env.KIMI_API_KEY = '';
+    const manager = new ConfigManager(null);
     expect(manager.getApiKey('kimi-k2.6')).toBeUndefined();
   });
 });

@@ -4,7 +4,7 @@
  * CLI for Claude Code Model Router
  */
 
-import { program } from 'commander';
+import { InvalidArgumentError, program } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
@@ -12,7 +12,7 @@ import { persistDefaultModel } from './default-model.js';
 import { checkModels } from './doctor.js';
 import { ensureEnvIgnored } from './env-guard.js';
 import { DEFAULT_SCAN_PORTS, discoverGateways, stopGateway } from './gateway-control.js';
-import { checkGatewayModel, ensureGatewayRunning } from './launcher.js';
+import { checkGatewayModel, checkGatewaySource, ensureGatewayRunning } from './launcher.js';
 import { ccmrHome } from './paths.js';
 import { startServer } from './server.js';
 import { VERSION } from './version.js';
@@ -26,31 +26,29 @@ program
 program
   .command('start')
   .description('Start the model router gateway')
-  .option('-p, --port <port>', 'Port to listen on', '8080')
+  .option('-p, --port <port>', 'Port to listen on (defaults to config)', parsePort)
   .option('-c, --config <path>', 'Path to config file')
   .option(
     '--host <host>',
-    'Host to bind to (non-loopback exposes the gateway to the network; set CCMR_REQUIRED_AUTH_TOKEN)',
-    '127.0.0.1'
+    'Host to bind to (defaults to config; non-loopback requires authentication)'
+  )
+  .option(
+    '--allow-insecure-network',
+    'Allow a non-loopback bind without inbound authentication (unsafe)'
   )
   .action((options) => {
-    // Set port from option
-    if (options.port) {
-      process.env.GATEWAY_PORT = options.port;
-    }
-
     try {
       const configManager = new ConfigManager(options.config);
 
       // Override port if specified
-      if (options.port) {
-        configManager.getConfig().gateway.port = parseInt(options.port, 10);
+      if (options.port !== undefined) {
+        configManager.getConfig().gateway.port = options.port;
       }
-      if (options.host) {
+      if (options.host !== undefined) {
         configManager.getConfig().gateway.host = options.host;
       }
 
-      startServer(configManager);
+      startServer(configManager, { allowInsecureNetwork: options.allowInsecureNetwork });
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);
@@ -166,23 +164,43 @@ program
     }
   });
 
-function parsePorts(value: string | undefined): number[] {
-  if (!value) {
-    return DEFAULT_SCAN_PORTS;
+function parsePort(value: string): number {
+  if (!/^\d+$/.test(value.trim())) {
+    throw new InvalidArgumentError('Port must be an integer from 1 to 65535.');
   }
-  return value
-    .split(',')
-    .map((p) => parseInt(p.trim(), 10))
-    .filter((p) => Number.isInteger(p) && p > 0);
+  const port = Number(value);
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+    throw new InvalidArgumentError('Port must be an integer from 1 to 65535.');
+  }
+  return port;
+}
+
+function parsePositiveInteger(value: string): number {
+  if (!/^\d+$/.test(value.trim()) || Number(value) < 1) {
+    throw new InvalidArgumentError('Value must be a positive integer.');
+  }
+  return Number(value);
+}
+
+function parsePortList(value: string): number[] {
+  const rawPorts = value.split(',').map((item) => item.trim());
+  if (rawPorts.length === 0 || rawPorts.some((item) => item.length === 0)) {
+    throw new InvalidArgumentError('Ports must be a comma-separated list.');
+  }
+  return [...new Set(rawPorts.map(parsePort))];
+}
+
+function clientAuthToken(): string | undefined {
+  return process.env.CCMR_AUTH_TOKEN || process.env.CCMR_REQUIRED_AUTH_TOKEN || undefined;
 }
 
 // Status command - find gateways running on this machine
 program
   .command('status')
   .description('List running ccmr gateways (including ones auto-started by `ccmr claude`)')
-  .option('--ports <ports>', 'Comma-separated ports to scan (default: 8080-8099)')
+  .option('--ports <ports>', 'Comma-separated ports to scan (default: 8080-8099)', parsePortList)
   .action(async (options) => {
-    const ports = parsePorts(options.ports);
+    const ports: number[] = options.ports ?? DEFAULT_SCAN_PORTS;
     const gateways = await discoverGateways(ports);
 
     console.log('');
@@ -212,13 +230,17 @@ program
 program
   .command('stop')
   .description('Stop a running ccmr gateway')
-  .option('-p, --port <port>', 'Gateway port', '8080')
+  .option('-p, --port <port>', 'Gateway port (defaults to config)', parsePort)
   .option('--all', 'Stop every ccmr gateway found on the default port range')
   .option('--force', 'Escalate to SIGKILL if the gateway ignores SIGTERM')
   .action(async (options) => {
+    const configuredPort =
+      options.all || options.port !== undefined
+        ? undefined
+        : new ConfigManager().getConfig().gateway.port;
     const ports: number[] = options.all
       ? (await discoverGateways()).map((gateway) => gateway.port)
-      : [parseInt(options.port, 10)];
+      : [options.port ?? configuredPort!];
 
     if (options.all && ports.length === 0) {
       console.log('');
@@ -254,6 +276,14 @@ program
               ' report its pid.'
           );
           console.error(`  Stop it with: pkill -f "cli.js start --port ${port}"`);
+          break;
+        case 'unverified_gateway':
+          failed = true;
+          console.error(
+            `\x1b[31m[ERROR]\x1b[0m Gateway on port ${port} has no matching local identity record.`
+          );
+          console.error('  Refusing to trust a PID supplied only through HTTP.');
+          console.error('  Restart this gateway with the current ccmr version, then retry.');
           break;
         case 'still_running':
           failed = true;
@@ -312,7 +342,7 @@ program
   .description('Check model connectivity (sends one tiny real request per configured model)')
   .argument('[models...]', 'Specific models or aliases to check (default: all)')
   .option('-c, --config <path>', 'Path to config file')
-  .option('--timeout <seconds>', 'Per-check timeout in seconds', '30')
+  .option('--timeout <seconds>', 'Per-check timeout in seconds', parsePositiveInteger, 30)
   .action(async (models: string[], options) => {
     try {
       const configManager = new ConfigManager(options.config);
@@ -322,7 +352,7 @@ program
 
       const results = await checkModels(configManager, {
         models: models.length > 0 ? models : undefined,
-        timeout: parseInt(options.timeout, 10),
+        timeout: options.timeout,
       });
 
       const nameWidth = Math.max(24, ...results.map((r) => r.model.length + 2));
@@ -361,14 +391,19 @@ program
 program
   .command('stats')
   .description('Show per-model usage counters from the running gateway')
-  .option('--gateway-port <port>', 'Gateway port (default: 8080)', '8080')
+  .option('--gateway-port <port>', 'Gateway port (defaults to config)', parsePort)
   .action(async (options) => {
     try {
+      // Always construct the manager so .env authentication is loaded even
+      // when the caller supplies an explicit port.
+      const configManager = new ConfigManager();
+      const gatewayPort = options.gatewayPort ?? configManager.getConfig().gateway.port;
       const headers: Record<string, string> = {};
-      if (process.env.CCMR_AUTH_TOKEN) {
-        headers['x-api-key'] = process.env.CCMR_AUTH_TOKEN;
+      const authToken = clientAuthToken();
+      if (authToken) {
+        headers['x-api-key'] = authToken;
       }
-      const res = await fetch(`http://127.0.0.1:${options.gatewayPort}/usage`, { headers });
+      const res = await fetch(`http://127.0.0.1:${gatewayPort}/usage`, { headers });
       if (!res.ok) {
         console.error(`Gateway returned ${res.status} - is CCMR_AUTH_TOKEN required?`);
         process.exit(1);
@@ -404,7 +439,8 @@ program
       }
       console.log('');
     } catch {
-      console.error(`Could not reach the gateway on port ${options.gatewayPort}.`);
+      const gatewayPort = options.gatewayPort ?? 'the configured port';
+      console.error(`Could not reach the gateway on port ${gatewayPort}.`);
       console.error('Start it with: ccmr start');
       process.exit(1);
     }
@@ -416,7 +452,7 @@ program
   .command('claude')
   .description('Launch Claude Code connected to the gateway (for third-party models)')
   .argument('[prompt]', 'Your prompt (optional)')
-  .option('--gateway-port <port>', 'Gateway port (default: 8080)', '8080')
+  .option('--gateway-port <port>', 'Gateway port (defaults to config)', parsePort)
   // Session options
   .option('-c, --continue', 'Continue the most recent conversation')
   .option('-r, --resume [value]', 'Resume a conversation by session ID, or open interactive picker')
@@ -445,8 +481,8 @@ program
     const os = await import('node:os');
 
     const homeDir = os.homedir();
-    const gatewayPort = options.gatewayPort || '8080';
     const configManager = new ConfigManager();
+    const gatewayPort = options.gatewayPort ?? configManager.getConfig().gateway.port;
     const defaultModel = options.model || configManager.getConfig().default_model;
 
     // Make sure a gateway is listening; auto-start a detached one if not.
@@ -467,6 +503,24 @@ program
         `\x1b[33m[WARNING]\x1b[0m Gateway is v${gateway.health.version} but this CLI is v${VERSION}.` +
           ' Restart the gateway to pick up the new version.'
       );
+    }
+
+    const sourceCheck = checkGatewaySource(gateway.health, configManager.getSourceId());
+    if (!sourceCheck.ok) {
+      const source = gateway.health.config_file ?? 'unknown (gateway is too old to report it)';
+      console.error('');
+      console.error(
+        `\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} belongs to a different config source.`
+      );
+      console.error(`  Current config: ${configManager.getConfigFilePath() ?? 'built-in defaults'}`);
+      console.error(`  Gateway config: ${source}`);
+      console.error('');
+      console.error('  Keep the existing gateway and choose another port:');
+      console.error(`    ccmr claude --gateway-port ${Number(gatewayPort) + 1}`);
+      console.error('  Or stop it first if no other session is using it:');
+      console.error(`    ccmr stop --port ${gatewayPort}`);
+      console.error('');
+      process.exit(1);
     }
 
     // The gateway may be reachable yet unable to serve this model (e.g. it
@@ -513,7 +567,7 @@ program
       ...autoCompactWindow,
       CLAUDE_CONFIG_DIR: path.join(homeDir, '.claude-gateway'),
       ANTHROPIC_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
-      ANTHROPIC_AUTH_TOKEN: process.env.CCMR_AUTH_TOKEN || 'ccmr-local-gateway',
+      ANTHROPIC_AUTH_TOKEN: clientAuthToken() || 'ccmr-local-gateway',
       ANTHROPIC_MODEL: defaultModel,
       ANTHROPIC_DEFAULT_SONNET_MODEL: defaultModel,
       ANTHROPIC_DEFAULT_OPUS_MODEL: defaultModel,

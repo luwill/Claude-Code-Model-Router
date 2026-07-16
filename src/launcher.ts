@@ -14,6 +14,11 @@ export interface GatewayHealth {
   default_model?: string;
   config_file?: string | null;
   ccmr_home?: string;
+  /** Secret-free fingerprint of the config/.env source set. */
+  config_source_id?: string;
+  /** Random per-process identity, paired with a local 0600 registry file. */
+  instance_id?: string;
+  service?: string;
   /** The gateway's own process id (absent on gateways older than 1.8.2). */
   pid?: number;
   /** model key -> 'available' | 'no_api_key' (absent on gateways older than 1.8.1) */
@@ -23,6 +28,23 @@ export interface GatewayHealth {
 export type GatewayModelCheck =
   | { ok: true }
   | { ok: false; reason: 'unknown_model' | 'no_api_key' };
+
+export type GatewaySourceCheck =
+  | { ok: true }
+  | { ok: false; reason: 'source_mismatch' | 'source_unknown' };
+
+/** Refuse to reuse a detached gateway whose project/config provenance differs. */
+export function checkGatewaySource(
+  health: GatewayHealth,
+  expectedSourceId: string
+): GatewaySourceCheck {
+  if (!health.config_source_id) {
+    return { ok: false, reason: 'source_unknown' };
+  }
+  return health.config_source_id === expectedSourceId
+    ? { ok: true }
+    : { ok: false, reason: 'source_mismatch' };
+}
 
 /**
  * Guards against reusing a reachable-but-useless gateway. A gateway that

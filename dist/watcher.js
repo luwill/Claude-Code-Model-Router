@@ -34,6 +34,7 @@ function watchCandidates(configManager, cwd = process.cwd()) {
         node_path_1.default.join(home, 'models.yaml'),
         node_path_1.default.join(cwd, '.env'),
         node_path_1.default.join(home, '.env'),
+        ...configManager.getEnvCandidatePaths(),
     ].filter((p) => !!p);
     return [...new Set(candidates)];
 }

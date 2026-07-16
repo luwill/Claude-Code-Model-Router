@@ -11,6 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkModels = checkModels;
 const router_js_1 = require("./router.js");
 const DEFAULT_DOCTOR_TIMEOUT_SECONDS = 30;
+const DEFAULT_DOCTOR_CONCURRENCY = 3;
 async function checkModels(configManager, options = {}) {
     const config = configManager.getConfig();
     // Doctor owns this ConfigManager instance; shorten the forwarding timeout
@@ -23,7 +24,16 @@ async function checkModels(configManager, options = {}) {
         Object.entries(config.models)
             .filter(([name, model]) => !(model.provider_key && name === model.provider_key))
             .map(([name]) => name);
-    return Promise.all(targets.map((name) => checkOne(configManager, router, name)));
+    const results = new Array(targets.length);
+    let nextIndex = 0;
+    const worker = async () => {
+        while (nextIndex < targets.length) {
+            const index = nextIndex++;
+            results[index] = await checkOne(configManager, router, targets[index]);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(DEFAULT_DOCTOR_CONCURRENCY, targets.length) }, worker));
+    return results;
 }
 async function checkOne(configManager, router, name) {
     const model = configManager.getModel(name);

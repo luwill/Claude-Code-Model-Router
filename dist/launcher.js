@@ -7,6 +7,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkGatewaySource = checkGatewaySource;
 exports.checkGatewayModel = checkGatewayModel;
 exports.probeGateway = probeGateway;
 exports.waitForHealthy = waitForHealthy;
@@ -15,6 +16,15 @@ const node_child_process_1 = require("node:child_process");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const paths_js_1 = require("./paths.js");
+/** Refuse to reuse a detached gateway whose project/config provenance differs. */
+function checkGatewaySource(health, expectedSourceId) {
+    if (!health.config_source_id) {
+        return { ok: false, reason: 'source_unknown' };
+    }
+    return health.config_source_id === expectedSourceId
+        ? { ok: true }
+        : { ok: false, reason: 'source_mismatch' };
+}
 /**
  * Guards against reusing a reachable-but-useless gateway. A gateway that
  * started before its config existed answers /health with 200 while holding

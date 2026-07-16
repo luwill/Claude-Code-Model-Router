@@ -8,13 +8,25 @@ export declare class ConfigManager {
     private apiKeys;
     private requestedConfigPath?;
     private configFilePath;
-    constructor(configPath?: string);
+    /** Values this instance injected from .env, used to revoke removed entries. */
+    private managedEnvValues;
+    constructor(configPath?: string | null);
     private loadConfig;
+    private readConfigFile;
     private mergeConfig;
     private mergeProviders;
     private normalizeConfig;
     private buildModelConfig;
     private resolveAlias;
+    private isRecord;
+    private requireString;
+    private validateFallback;
+    private validateConfigShape;
+    private validatePositiveInteger;
+    private requireHttpUrl;
+    private applyGatewayEnvOverrides;
+    private parsePositiveInteger;
+    private parsePositiveNumber;
     private loadApiKeys;
     getConfig(): RouterConfig;
     getModel(name: string): ModelConfig | undefined;
@@ -27,6 +39,17 @@ export declare class ConfigManager {
     reloadApiKeys(): void;
     /** Path of the config file that was actually loaded (null = built-in defaults). */
     getConfigFilePath(): string | null;
+    /**
+     * Stable, secret-free identity for the config and .env sources used by this
+     * process. Detached gateways are shared only when this identity matches the
+     * launching CLI, preventing one project from silently using another
+     * project's endpoints or credentials.
+     */
+    getSourceId(): string;
+    /** Existing .env sources, ordered from lower to higher precedence. */
+    getEnvFilePaths(): string[];
+    /** All possible .env sources, including paths that do not exist yet. */
+    getEnvCandidatePaths(): string[];
     /**
      * Hot-reload: re-apply .env files and re-read the loaded config file.
      * A file that no longer parses keeps the previous working config

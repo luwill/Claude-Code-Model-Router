@@ -109,6 +109,11 @@ export interface MessagesResponse {
   usage: Usage;
 }
 
+export interface CountTokensResponse {
+  input_tokens: number;
+  [key: string]: unknown;
+}
+
 export interface ErrorResponse {
   type: 'error';
   error: {

@@ -38,6 +38,7 @@ export function watchCandidates(configManager: ConfigManager, cwd = process.cwd(
     path.join(home, 'models.yaml'),
     path.join(cwd, '.env'),
     path.join(home, '.env'),
+    ...configManager.getEnvCandidatePaths(),
   ].filter((p): p is string => !!p);
 
   return [...new Set(candidates)];

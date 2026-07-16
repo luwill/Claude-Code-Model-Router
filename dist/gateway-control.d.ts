@@ -10,6 +10,7 @@
  * port is reported, never killed. This also keeps the implementation free of
  * platform-specific `lsof` / `netstat` parsing.
  */
+import type { GatewayHealth } from './launcher.js';
 /** CLI default (8080), VSCode extension default (8088) and its fallback range. */
 export declare const DEFAULT_SCAN_PORTS: number[];
 export interface GatewayInfo {
@@ -33,6 +34,9 @@ export type StopResult = {
 } | {
     status: 'unknown_process';
 } | {
+    status: 'unverified_gateway';
+    pid?: number;
+} | {
     status: 'no_pid';
     version?: string;
 };
@@ -43,6 +47,8 @@ export interface StopOptions {
     waitMs?: number;
     /** Escalate to SIGKILL if the process ignores SIGTERM. */
     force?: boolean;
+    /** Injectable for tests; defaults to checking the local identity registry. */
+    verifyIdentity?: (port: number, health: GatewayHealth) => boolean;
 }
 export declare function discoverGateways(ports?: number[], timeoutMs?: number): Promise<GatewayInfo[]>;
 export declare function stopGateway(port: number, options?: StopOptions): Promise<StopResult>;

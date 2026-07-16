@@ -13,6 +13,8 @@
 
 import net from 'node:net';
 import { probeGateway } from './launcher.js';
+import { readGatewayIdentity } from './gateway-identity.js';
+import type { GatewayHealth } from './launcher.js';
 
 /** CLI default (8080), VSCode extension default (8088) and its fallback range. */
 export const DEFAULT_SCAN_PORTS: number[] = Array.from({ length: 20 }, (_, i) => 8080 + i);
@@ -33,6 +35,7 @@ export type StopResult =
   | { status: 'still_running'; pid: number }
   | { status: 'not_running' }
   | { status: 'unknown_process' }
+  | { status: 'unverified_gateway'; pid?: number }
   | { status: 'no_pid'; version?: string };
 
 export interface StopOptions {
@@ -42,11 +45,30 @@ export interface StopOptions {
   waitMs?: number;
   /** Escalate to SIGKILL if the process ignores SIGTERM. */
   force?: boolean;
+  /** Injectable for tests; defaults to checking the local identity registry. */
+  verifyIdentity?: (port: number, health: GatewayHealth) => boolean;
 }
 
 /** A ccmr gateway always answers /health with a version string. */
 function isCcmrGateway(health: unknown): boolean {
-  return !!health && typeof (health as { version?: unknown }).version === 'string';
+  if (
+    !health ||
+    (health as { status?: unknown }).status !== 'healthy' ||
+    typeof (health as { version?: unknown }).version !== 'string'
+  ) {
+    return false;
+  }
+  const service = (health as { service?: unknown }).service;
+  return service === undefined || service === 'claude-code-model-router';
+}
+
+function verifyRegisteredIdentity(port: number, health: GatewayHealth): boolean {
+  const registered = readGatewayIdentity(port);
+  return (
+    !!registered &&
+    registered.pid === health.pid &&
+    registered.instanceId === health.instance_id
+  );
 }
 
 function isPortOpen(port: number, timeoutMs = 300): Promise<boolean> {
@@ -104,6 +126,11 @@ export async function stopGateway(port: number, options: StopOptions = {}): Prom
 
   if (typeof health.pid !== 'number') {
     return { status: 'no_pid', version: health.version };
+  }
+
+  const verifyIdentity = options.verifyIdentity ?? verifyRegisteredIdentity;
+  if (!verifyIdentity(port, health)) {
+    return { status: 'unverified_gateway', pid: health.pid };
   }
 
   const pid = health.pid;

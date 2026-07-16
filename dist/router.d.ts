@@ -3,7 +3,7 @@
  */
 import type { ConfigManager } from './config.js';
 import type { UsageTracker } from './usage.js';
-import type { MessagesRequest, MessagesResponse, ErrorResponse, ModelConfig, RouteInfo } from './types.js';
+import type { MessagesRequest, MessagesResponse, CountTokensResponse, ErrorResponse, ModelConfig, RouteInfo } from './types.js';
 export declare class RouterError extends Error {
     statusCode: number;
     errorType: string;
@@ -24,12 +24,14 @@ export declare class ModelRouter {
     buildChain(modelName: string): string[];
     buildHeaders(route: RouteInfo, originalHeaders: Record<string, string>): Record<string, string>;
     buildRequestBody(request: MessagesRequest, modelConfig: ModelConfig): Record<string, unknown>;
+    private validateCapabilities;
     private normalizeProviderRequestBody;
     private normalizeDeepSeekRequestBody;
     buildUrl(modelConfig: ModelConfig, endpoint?: string): string;
-    forwardRequest(request: MessagesRequest, originalHeaders: Record<string, string>): Promise<MessagesResponse>;
+    forwardRequest(request: MessagesRequest, originalHeaders: Record<string, string>, signal?: AbortSignal, onRoute?: (route: RouteInfo) => void): Promise<MessagesResponse>;
     private attemptRequest;
-    forwardStream(request: MessagesRequest, originalHeaders: Record<string, string>): AsyncGenerator<string>;
+    forwardCountTokens(request: MessagesRequest, originalHeaders: Record<string, string>, signal?: AbortSignal): Promise<CountTokensResponse>;
+    forwardStream(request: MessagesRequest, originalHeaders: Record<string, string>, signal?: AbortSignal): AsyncGenerator<string>;
     private streamBody;
     /** Pull token counts out of message_start / message_delta SSE events. */
     private accumulateStreamUsage;
