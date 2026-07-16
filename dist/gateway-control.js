@@ -34,6 +34,14 @@ function isCcmrGateway(health) {
     return service === undefined || service === 'claude-code-model-router';
 }
 function verifyRegisteredIdentity(port, health) {
+    // Pre-1.8.3 gateways never advertised an instance_id or wrote an identity
+    // record. Requiring one would make them unstoppable after an upgrade: the
+    // old binary is gone, so "restart it with the current version" can never be
+    // satisfied without the stop this check would refuse. They keep the trust
+    // level `ccmr stop` shipped with in 1.8.2 (a /health-self-identified pid).
+    if (!health.instance_id) {
+        return true;
+    }
     const registered = (0, gateway_identity_js_1.readGatewayIdentity)(port);
     return (!!registered &&
         registered.pid === health.pid &&

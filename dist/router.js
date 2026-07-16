@@ -183,6 +183,11 @@ class ModelRouter {
                 const routerError = error instanceof RouterError
                     ? error
                     : new RouterError('Unknown error occurred', 500, 'internal_error');
+                if (routerError.errorType === 'request_aborted') {
+                    // The client is gone: not a model failure, so no failover and no
+                    // error counters - the /usage stats must reflect upstream health.
+                    throw routerError;
+                }
                 this.usageTracker?.recordError(route.name);
                 lastError = routerError;
                 const hasMoreCandidates = i < chain.length - 1;
@@ -225,11 +230,14 @@ class ModelRouter {
             if (error instanceof RouterError) {
                 throw error;
             }
+            // abort(reason) rejects fetch with the caller's reason, whose name is
+            // NOT 'AbortError' - a client disconnect must be classified by the
+            // signal, or it masquerades as a retryable connection error.
+            if (signal?.aborted) {
+                throw new RouterError('Client disconnected', 499, 'request_aborted');
+            }
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
-                    if (signal?.aborted) {
-                        throw new RouterError('Client disconnected', 499, 'request_aborted');
-                    }
                     throw new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error');
                 }
                 throw new RouterError(`Connection error: ${error.message}`, 502, 'connection_error');
@@ -268,10 +276,12 @@ class ModelRouter {
         catch (error) {
             if (error instanceof RouterError)
                 throw error;
+            // See attemptRequest: a client abort carries a custom reason, so it
+            // must be classified by the signal rather than the error name.
+            if (signal?.aborted) {
+                throw new RouterError('Client disconnected', 499, 'request_aborted');
+            }
             if (error instanceof Error && error.name === 'AbortError') {
-                if (signal?.aborted) {
-                    throw new RouterError('Client disconnected', 499, 'request_aborted');
-                }
                 throw new RouterError(`Request timed out after ${timeout / 1000}s`, 504, 'timeout_error');
             }
             throw new RouterError(`Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`, 502, 'connection_error');
@@ -335,7 +345,7 @@ class ModelRouter {
                 clearTimeout(connectTimer);
                 unlinkAbort();
                 if (signal?.aborted) {
-                    this.usageTracker?.recordError(route.name);
+                    // Client disconnect, not a model failure: no error counters.
                     return;
                 }
                 const routerError = error instanceof Error && error.name === 'AbortError'
@@ -442,10 +452,11 @@ class ModelRouter {
             }
         }
         catch (error) {
-            this.usageTracker?.recordError(route.name);
             if (clientSignal?.aborted) {
+                // Client disconnect, not a model failure: no error counters.
                 return;
             }
+            this.usageTracker?.recordError(route.name);
             let errorMessage = 'Unknown error';
             let errorType = 'internal_error';
             if (error instanceof Error) {

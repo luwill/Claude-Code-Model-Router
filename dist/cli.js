@@ -243,7 +243,8 @@ commander_1.program
                 failed = true;
                 console.error(`\x1b[31m[ERROR]\x1b[0m Gateway on port ${port} has no matching local identity record.`);
                 console.error('  Refusing to trust a PID supplied only through HTTP.');
-                console.error('  Restart this gateway with the current ccmr version, then retry.');
+                console.error('  If it is yours (e.g. started with a different CCMR_HOME), stop it manually:');
+                console.error(`    kill ${result.pid ?? '<pid>'}`);
                 break;
             case 'still_running':
                 failed = true;
@@ -435,16 +436,23 @@ commander_1.program
     }
     const sourceCheck = (0, launcher_js_1.checkGatewaySource)(gateway.health, configManager.getSourceId());
     if (!sourceCheck.ok) {
-        const source = gateway.health.config_file ?? 'unknown (gateway is too old to report it)';
         console.error('');
-        console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} belongs to a different config source.`);
-        console.error(`  Current config: ${configManager.getConfigFilePath() ?? 'built-in defaults'}`);
-        console.error(`  Gateway config: ${source}`);
-        console.error('');
-        console.error('  Keep the existing gateway and choose another port:');
-        console.error(`    ccmr claude --gateway-port ${Number(gatewayPort) + 1}`);
-        console.error('  Or stop it first if no other session is using it:');
-        console.error(`    ccmr stop --port ${gatewayPort}`);
+        if (sourceCheck.reason === 'source_unknown') {
+            console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} was started by an older ccmr ` +
+                'and cannot prove which config it uses.');
+            console.error('  Stop it, then rerun - a fresh gateway will start with your current config:');
+            console.error(`    ccmr stop --port ${gatewayPort}`);
+        }
+        else {
+            console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} belongs to a different config source.`);
+            console.error(`  Current config: ${configManager.getConfigFilePath() ?? 'built-in defaults'}`);
+            console.error(`  Gateway config: ${gateway.health.config_file ?? 'unknown'}`);
+            console.error('');
+            console.error('  Keep the existing gateway and choose another port:');
+            console.error(`    ccmr claude --gateway-port ${Number(gatewayPort) + 1}`);
+            console.error('  Or stop it first if no other session is using it:');
+            console.error(`    ccmr stop --port ${gatewayPort}`);
+        }
         console.error('');
         process.exit(1);
     }

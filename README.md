@@ -104,7 +104,7 @@ claude
 
 复用网关前会比较配置路径、路由内容、`.env` 来源及 API Key 的不可逆摘要。若端口上的网关来自另一个项目，`ccmr claude` 会拒绝复用并提示换端口或先停止旧网关，避免提示词发往错误的供应商账号。
 
-> `ccmr stop` 会同时校验 `/health` 身份和 `~/.ccmr/gateway-<port>.identity.json` 中的本机随机身份记录，匹配后才会发送信号。只伪造 HTTP 响应不能诱导它停止任意 PID。
+> `ccmr stop` 会同时校验 `/health` 身份和 `~/.ccmr/gateway-<port>.identity.json` 中的本机随机身份记录，匹配后才会发送信号。只伪造 HTTP 响应不能诱导它停止任意 PID。由 v1.8.2 及更早版本启动的旧网关没有身份记录，沿用其 `/health` 自报 PID 停止，升级后仍可正常回收。
 
 > **安全提示**：网关默认绑定到 `127.0.0.1`（仅本机可访问）。网关会用你本地配置的各厂商 API Key 代理上游请求，因此任何能访问该端口的人都能消耗你的额度。
 > 若确需通过 `--host 0.0.0.0` 暴露到局域网，必须设置环境变量 `CCMR_REQUIRED_AUTH_TOKEN`，此时调用方需在 `x-api-key` 或 `Authorization: Bearer <token>` 中携带该令牌。未设置时网关默认拒绝启动；仅在已隔离且明确接受风险时使用 `--allow-insecure-network`。远程未认证的 `/health` 只返回基础存活信息，不暴露 PID、路径或 Key 状态。
@@ -475,10 +475,10 @@ DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Co
 ### v1.8.3
 
 - 阻止 detached 网关跨项目复用错误的配置、端点或 API Key
-- 流式转发改用增量 UTF-8 解码，兼容 CRLF SSE；客户端断开会取消上游请求并处理背压
+- 流式转发改用增量 UTF-8 解码，兼容 CRLF SSE；客户端断开会取消上游请求并处理背压，且不再误判为连接错误而触发 failover 或污染用量统计
 - `.env` 删除 Key 后会真正撤销，入站鉴权支持热轮换；内置客户端统一使用相同令牌
 - 非回环无鉴权监听改为默认拒绝，远程 `/health` 隐藏本机路径、PID 与 Key 状态
-- `ccmr stop` 增加本机随机身份记录校验，不再只信任 HTTP 自报 PID
+- `ccmr stop` 增加本机随机身份记录校验，不再只信任 HTTP 自报 PID（旧版网关没有身份记录，沿用原停止方式，升级后仍可回收）
 - 显式配置路径、YAML、端口、超时和 CLI 数值参数改为严格校验；YAML/env/CLI 优先级保持一致
 - 实现兼容 `/v1/messages/count_tokens` 转发，并执行 streaming/tools 能力声明
 - 修复流式断连继续计费、生产依赖漏洞和缺失 LICENSE；CI/发布前新增依赖审计

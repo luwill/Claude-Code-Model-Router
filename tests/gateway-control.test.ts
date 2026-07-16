@@ -6,10 +6,14 @@
  * never be killed.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { discoverGateways, stopGateway } from '../src/gateway-control.js';
+import { newGatewayInstanceId, writeGatewayIdentity } from '../src/gateway-identity.js';
 
 const servers: http.Server[] = [];
 
@@ -33,6 +37,7 @@ interface FakeHealth {
   default_model?: string;
   config_file?: string | null;
   models?: Record<string, string>;
+  instance_id?: string;
 }
 
 function ccmrGateway(health: FakeHealth): Promise<number> {
@@ -172,5 +177,79 @@ describe('stopGateway', () => {
 
     expect(result).toEqual({ status: 'unverified_gateway', pid: 4242 });
     expect(killed).toEqual([]);
+  });
+});
+
+// The DEFAULT identity check (no injected verifyIdentity). Upgrade property
+// under test: a pre-1.8.3 gateway never wrote an identity record, so requiring
+// one would make it unstoppable right after an upgrade - `ccmr stop` refuses,
+// while its own advice ("restart with the current version") needs the stop to
+// succeed first. Legacy gateways keep the 1.8.2 trust level instead.
+describe('stopGateway default identity verification', () => {
+  let savedHome: string | undefined;
+
+  beforeEach(() => {
+    savedHome = process.env.CCMR_HOME;
+    process.env.CCMR_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ccmr-identity-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(process.env.CCMR_HOME!, { recursive: true, force: true });
+    if (savedHome === undefined) delete process.env.CCMR_HOME;
+    else process.env.CCMR_HOME = savedHome;
+  });
+
+  it('stops a legacy gateway that predates identity records', async () => {
+    const killed: Array<[number, string]> = [];
+    const port = await ccmrGateway({ version: '1.8.2', pid: 4242, models: {} });
+    const server = servers[servers.length - 1];
+
+    const result = await stopGateway(port, {
+      kill: (pid, signal) => {
+        killed.push([pid, signal]);
+        server.close();
+      },
+    });
+
+    expect(result).toEqual({ status: 'stopped', pid: 4242 });
+    expect(killed).toEqual([[4242, 'SIGTERM']]);
+  });
+
+  it('refuses a gateway that advertises an instance_id with no local record', async () => {
+    const killed: number[] = [];
+    const port = await ccmrGateway({
+      version: '1.8.3',
+      pid: 4242,
+      models: {},
+      instance_id: newGatewayInstanceId(),
+    });
+
+    const result = await stopGateway(port, { kill: (pid) => killed.push(pid) });
+
+    expect(result).toEqual({ status: 'unverified_gateway', pid: 4242 });
+    expect(killed).toEqual([]);
+  });
+
+  it('stops a gateway whose instance_id matches the local identity record', async () => {
+    const killed: Array<[number, string]> = [];
+    const instanceId = newGatewayInstanceId();
+    const port = await ccmrGateway({
+      version: '1.8.3',
+      pid: process.pid, // writeGatewayIdentity records the writer's own pid
+      models: {},
+      instance_id: instanceId,
+    });
+    const server = servers[servers.length - 1];
+    writeGatewayIdentity(port, instanceId);
+
+    const result = await stopGateway(port, {
+      kill: (pid, signal) => {
+        killed.push([pid, signal]);
+        server.close();
+      },
+    });
+
+    expect(result).toEqual({ status: 'stopped', pid: process.pid });
+    expect(killed).toEqual([[process.pid, 'SIGTERM']]);
   });
 });

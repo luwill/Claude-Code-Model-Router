@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ConfigManager } from '../src/config.js';
 import { ModelRouter, RouterError } from '../src/router.js';
+import { UsageTracker } from '../src/usage.js';
 
 const cleanups: Array<() => void> = [];
 
@@ -93,7 +94,11 @@ beforeAll(async () => {
   probe.close();
 });
 
-function routerFor(primaryPort: number, fallback?: string[]): ModelRouter {
+function routerFor(
+  primaryPort: number,
+  fallback?: string[],
+  options: { backupPort?: number; tracker?: UsageTracker } = {}
+): ModelRouter {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccmr-failover-'));
   cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'models.yaml');
@@ -119,7 +124,7 @@ ${fallback ? `        fallback: [${fallback.join(', ')}]` : ''}
   fo-backup:
     display_name: Failover Backup
     provider: custom
-    base_url: http://127.0.0.1:${healthyPort}
+    base_url: http://127.0.0.1:${options.backupPort ?? healthyPort}
     api_key_env: FO_BACKUP_KEY
     default_variant: v1
     variants:
@@ -128,7 +133,7 @@ ${fallback ? `        fallback: [${fallback.join(', ')}]` : ''}
         model_id: fo-backup-001
 `
   );
-  return new ModelRouter(new ConfigManager(file));
+  return new ModelRouter(new ConfigManager(file), options.tracker);
 }
 
 const request = {
@@ -197,5 +202,117 @@ describe('forwardStream failover', () => {
     const text = await collect(router);
     expect(text).toContain('event: error');
     expect(text).toContain('upstream down');
+  });
+});
+
+// A client disconnect arrives as abort(reason), which rejects fetch with the
+// caller's reason - NOT an 'AbortError'. It must be classified by the signal,
+// never treated as an upstream failure: no failover, no error counters.
+describe('client disconnect (aborted signal)', () => {
+  function abortLikeServerDoes(controller: AbortController, afterMs: number): void {
+    setTimeout(() => controller.abort(new Error('Client disconnected')), afterMs);
+  }
+
+  async function hangingUpstream(onHit: () => void): Promise<number> {
+    return startUpstream((req) => {
+      onHit();
+      req.resume(); // read the body, then never respond
+    });
+  }
+
+  it('rejects with 499 request_aborted instead of a connection error', async () => {
+    const hangingPort = await hangingUpstream(() => {});
+    const router = routerFor(hangingPort);
+    const controller = new AbortController();
+    abortLikeServerDoes(controller, 50);
+
+    await expect(
+      router.forwardRequest({ ...request }, {}, controller.signal)
+    ).rejects.toMatchObject({ statusCode: 499, errorType: 'request_aborted' });
+  });
+
+  it('does not attempt failover or count model errors for an aborted request', async () => {
+    const hangingPort = await hangingUpstream(() => {});
+    let backupHits = 0;
+    const countingBackupPort = await startUpstream((req, res) => {
+      backupHits++;
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(jsonResponse('fo-backup-001'));
+      });
+    });
+    const tracker = new UsageTracker();
+    const router = routerFor(hangingPort, ['fo-backup-v1'], {
+      backupPort: countingBackupPort,
+      tracker,
+    });
+    const controller = new AbortController();
+    abortLikeServerDoes(controller, 50);
+
+    await expect(
+      router.forwardRequest({ ...request }, {}, controller.signal)
+    ).rejects.toMatchObject({ errorType: 'request_aborted' });
+    expect(backupHits).toBe(0);
+    expect(tracker.snapshot().totals.errors).toBe(0);
+  });
+
+  it('rejects count_tokens with 499 request_aborted when the client disconnects', async () => {
+    const hangingPort = await hangingUpstream(() => {});
+    const router = routerFor(hangingPort);
+    const controller = new AbortController();
+    abortLikeServerDoes(controller, 50);
+
+    await expect(
+      router.forwardCountTokens({ ...request }, {}, controller.signal)
+    ).rejects.toMatchObject({ statusCode: 499, errorType: 'request_aborted' });
+  });
+
+  it('ends a connecting stream quietly without counting a model error', async () => {
+    const hangingPort = await hangingUpstream(() => {});
+    const tracker = new UsageTracker();
+    const router = routerFor(hangingPort, undefined, { tracker });
+    const controller = new AbortController();
+    abortLikeServerDoes(controller, 50);
+
+    let out = '';
+    for await (const chunk of router.forwardStream(
+      { ...request, stream: true },
+      {},
+      controller.signal
+    )) {
+      out += chunk;
+    }
+    expect(out).not.toContain('event: error');
+    expect(tracker.snapshot().totals.errors).toBe(0);
+  });
+
+  it('stops mid-stream without counting a model error when the client disconnects', async () => {
+    const streamThenHangPort = await startUpstream((req, res) => {
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.write(
+          'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}\n\n'
+        );
+        // keep the stream open forever
+      });
+    });
+    const tracker = new UsageTracker();
+    const router = routerFor(streamThenHangPort, undefined, { tracker });
+    const controller = new AbortController();
+
+    let out = '';
+    for await (const chunk of router.forwardStream(
+      { ...request, stream: true },
+      {},
+      controller.signal
+    )) {
+      out += chunk;
+      controller.abort(new Error('Client disconnected'));
+    }
+    expect(out).toContain('message_start');
+    expect(out).not.toContain('event: error');
+    expect(tracker.snapshot().totals.errors).toBe(0);
   });
 });
