@@ -82,14 +82,10 @@ function requestValidationError(body) {
     if (!Array.isArray(request.messages) || request.messages.length === 0) {
         return 'messages must be a non-empty array';
     }
-    for (const [index, message] of request.messages.entries()) {
-        if (!message || (message.role !== 'user' && message.role !== 'assistant')) {
-            return `messages[${index}].role must be user or assistant`;
-        }
-        if (typeof message.content !== 'string' && !Array.isArray(message.content)) {
-            return `messages[${index}].content must be a string or content-block array`;
-        }
-    }
+    // Do NOT validate individual message shapes (role, content, ...): the
+    // message schema belongs to the upstream protocol and evolves with the
+    // client - Claude Code v2.1+ already sends role:"system" entries. The
+    // gateway only checks what routing itself depends on.
     if (request.max_tokens !== undefined &&
         (!Number.isInteger(request.max_tokens) || request.max_tokens <= 0)) {
         return 'max_tokens must be a positive integer';

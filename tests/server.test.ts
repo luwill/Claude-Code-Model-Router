@@ -247,6 +247,36 @@ describe('POST /v1/messages forwarding', () => {
     expect(text).toContain('message_delta');
   });
 
+  // Claude Code v2.1+ puts harness context into the messages array as
+  // role:"system" entries (POST /v1/messages?beta=true). The gateway must
+  // not police message schemas the upstream owns - 1.8.3's role whitelist
+  // rejected every such request with 400 before it ever left the machine.
+  it('forwards messages with roles beyond user/assistant untouched', async () => {
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+
+    const res = await fetch(`${gateway.url}/v1/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'testmodel-v1',
+        max_tokens: 100,
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'system', content: 'Available agent types for the Agent tool: ...' },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const forwarded = captured.body?.messages as Array<{ role: string; content: string }>;
+    expect(forwarded).toHaveLength(2);
+    expect(forwarded[1]).toEqual({
+      role: 'system',
+      content: 'Available agent types for the Agent tool: ...',
+    });
+  });
+
   it('returns 400 invalid_model for unknown models', async () => {
     const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
     const gateway = await startGateway(configFile);
