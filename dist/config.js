@@ -54,6 +54,12 @@ exports.DEFAULT_CONFIG = {
             supports_tools: true,
             default_variant: 'k2.6',
             variants: {
+                k3: {
+                    display_name: 'Kimi K3',
+                    model_id: 'kimi-k3',
+                    max_tokens: 1048576,
+                    context_window: 1048576,
+                },
                 'k2.6': {
                     display_name: 'Kimi K2.6',
                     model_id: 'kimi-k2.6',
@@ -68,6 +74,43 @@ exports.DEFAULT_CONFIG = {
                 },
                 'k2.7-code-highspeed': {
                     display_name: 'Kimi K2.7 Code HighSpeed',
+                    model_id: 'kimi-k2.7-code-highspeed',
+                    max_tokens: 32768,
+                    context_window: 262144,
+                },
+            },
+        },
+        'kimi-cn': {
+            display_name: 'Kimi CN',
+            provider: 'moonshot-cn',
+            base_url: 'https://api.moonshot.cn/anthropic',
+            api_key_env: 'KIMI_CN_API_KEY',
+            auth_header: 'Authorization',
+            auth_type: 'bearer',
+            supports_streaming: true,
+            supports_tools: true,
+            default_variant: 'k3',
+            variants: {
+                k3: {
+                    display_name: 'Kimi K3 (CN)',
+                    model_id: 'kimi-k3',
+                    max_tokens: 1048576,
+                    context_window: 1048576,
+                },
+                'k2.6': {
+                    display_name: 'Kimi K2.6 (CN)',
+                    model_id: 'kimi-k2.6',
+                    max_tokens: 32768,
+                    context_window: 262144,
+                },
+                'k2.7-code': {
+                    display_name: 'Kimi K2.7 Code (CN)',
+                    model_id: 'kimi-k2.7-code',
+                    max_tokens: 32768,
+                    context_window: 262144,
+                },
+                'k2.7-code-highspeed': {
+                    display_name: 'Kimi K2.7 Code HighSpeed (CN)',
                     model_id: 'kimi-k2.7-code-highspeed',
                     max_tokens: 32768,
                     context_window: 262144,
@@ -399,6 +442,8 @@ exports.DEFAULT_CONFIG = {
         'kimi-k2': 'kimi-k2.6',
         'kimi-k2.6': 'kimi-k2.6',
         moonshot: 'kimi-k2.6',
+        'kimi-k3': 'kimi-k3',
+        k3: 'kimi-k3',
         'kimi-k2.7-code': 'kimi-k2.7-code',
         'kimi-code': 'kimi-k2.7-code',
         'k2.7-code': 'kimi-k2.7-code',
@@ -406,6 +451,13 @@ exports.DEFAULT_CONFIG = {
         'kimi-code-highspeed': 'kimi-k2.7-code-highspeed',
         'kimi-highspeed': 'kimi-k2.7-code-highspeed',
         'k2.7-highspeed': 'kimi-k2.7-code-highspeed',
+        'kimi-cn': 'kimi-cn-k3',
+        'moonshot-cn': 'kimi-cn-k3',
+        'kimi-cn-k3': 'kimi-cn-k3',
+        'k3-cn': 'kimi-cn-k3',
+        'kimi-cn-k2.6': 'kimi-cn-k2.6',
+        'kimi-cn-k2.7-code': 'kimi-cn-k2.7-code',
+        'kimi-cn-k2.7-code-highspeed': 'kimi-cn-k2.7-code-highspeed',
         minimax: 'minimax-m3',
         'minimax-cn': 'minimax-m3',
         'minimax-m3': 'minimax-m3',
@@ -979,6 +1031,11 @@ providers:
     auth_type: bearer
     default_variant: k2.6
     variants:
+      k3:
+        display_name: "Kimi K3"
+        model_id: kimi-k3
+        max_tokens: 1048576
+        context_window: 1048576
       k2.6:
         display_name: "Kimi K2.6"
         model_id: kimi-k2.6
@@ -991,6 +1048,36 @@ providers:
         context_window: 262144
       k2.7-code-highspeed:
         display_name: "Kimi K2.7 Code HighSpeed"
+        model_id: kimi-k2.7-code-highspeed
+        max_tokens: 32768
+        context_window: 262144
+
+  kimi-cn:
+    display_name: Kimi CN
+    provider: moonshot-cn
+    base_url: https://api.moonshot.cn/anthropic
+    api_key_env: KIMI_CN_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: k3
+    variants:
+      k3:
+        display_name: "Kimi K3 (CN)"
+        model_id: kimi-k3
+        max_tokens: 1048576
+        context_window: 1048576
+      k2.6:
+        display_name: "Kimi K2.6 (CN)"
+        model_id: kimi-k2.6
+        max_tokens: 32768
+        context_window: 262144
+      k2.7-code:
+        display_name: "Kimi K2.7 Code (CN)"
+        model_id: kimi-k2.7-code
+        max_tokens: 32768
+        context_window: 262144
+      k2.7-code-highspeed:
+        display_name: "Kimi K2.7 Code HighSpeed (CN)"
         model_id: kimi-k2.7-code-highspeed
         max_tokens: 32768
         context_window: 262144
@@ -1256,6 +1343,8 @@ aliases:
   kimi-k2: kimi-k2.6
   kimi-k2.6: kimi-k2.6
   moonshot: kimi-k2.6
+  kimi-k3: kimi-k3
+  k3: kimi-k3
   kimi-k2.7-code: kimi-k2.7-code
   kimi-code: kimi-k2.7-code
   k2.7-code: kimi-k2.7-code
@@ -1263,6 +1352,13 @@ aliases:
   kimi-code-highspeed: kimi-k2.7-code-highspeed
   kimi-highspeed: kimi-k2.7-code-highspeed
   k2.7-highspeed: kimi-k2.7-code-highspeed
+  kimi-cn: kimi-cn-k3
+  moonshot-cn: kimi-cn-k3
+  kimi-cn-k3: kimi-cn-k3
+  k3-cn: kimi-cn-k3
+  kimi-cn-k2.6: kimi-cn-k2.6
+  kimi-cn-k2.7-code: kimi-cn-k2.7-code
+  kimi-cn-k2.7-code-highspeed: kimi-cn-k2.7-code-highspeed
   minimax: minimax-m3
   minimax-cn: minimax-m3
   minimax-m3: minimax-m3
@@ -1342,8 +1438,11 @@ function generateEnvFile() {
 # DeepSeek - https://platform.deepseek.com/
 DEEPSEEK_API_KEY=
 
-# Kimi / Moonshot - https://platform.kimi.ai/
+# Kimi / Moonshot 国际站 - https://platform.kimi.ai/
 KIMI_API_KEY=
+
+# Kimi / Moonshot 国内开放平台 - https://platform.kimi.com/ (原 platform.moonshot.cn)
+KIMI_CN_API_KEY=
 
 # MiniMax CN / Token Plan - https://platform.minimaxi.com/
 MINIMAX_API_KEY=

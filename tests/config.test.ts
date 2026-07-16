@@ -76,6 +76,44 @@ describe('ConfigManager: alias resolution', () => {
   });
 });
 
+describe('Kimi K3: international variant and CN-platform provider', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('exposes kimi-k3 on the international provider with 1M context and output', () => {
+    const model = config.models['kimi-k3'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('kimi-k3');
+    expect(model.base_url).toBe('https://api.moonshot.ai/anthropic');
+    expect(model.api_key_env).toBe('KIMI_API_KEY');
+    expect(model.max_tokens).toBe(1048576);
+    expect(model.context_window).toBe(1048576);
+    expect(manager.resolveModelName('k3')).toBe('kimi-k3');
+  });
+
+  it('exposes the CN open platform as its own provider with its own key', () => {
+    // platform.kimi.com (原 platform.moonshot.cn) keys do not work on the
+    // international platform, so the CN endpoint is a separate provider.
+    const model = config.models['kimi-cn-k3'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('kimi-k3');
+    expect(model.base_url).toBe('https://api.moonshot.cn/anthropic');
+    expect(model.api_key_env).toBe('KIMI_CN_API_KEY');
+    expect(model.max_tokens).toBe(1048576);
+    expect(model.context_window).toBe(1048576);
+    expect(manager.resolveModelName('kimi-cn')).toBe('kimi-cn-k3');
+    expect(manager.resolveModelName('k3-cn')).toBe('kimi-cn-k3');
+  });
+
+  it('mirrors the K2 series on the CN provider', () => {
+    for (const key of ['kimi-cn-k2.6', 'kimi-cn-k2.7-code', 'kimi-cn-k2.7-code-highspeed']) {
+      expect(config.models[key], key).toBeDefined();
+      expect(config.models[key].api_key_env, key).toBe('KIMI_CN_API_KEY');
+      expect(config.models[key].base_url, key).toBe('https://api.moonshot.cn/anthropic');
+    }
+  });
+});
+
 describe('ConfigManager: user config merging', () => {
   it('fails closed when an explicit config path does not exist', () => {
     expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(

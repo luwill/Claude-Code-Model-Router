@@ -183,9 +183,14 @@ ccmr claude --print --output-format json "你的问题"
 |--------|----------|------|--------|
 | `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
 | `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
-| `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot |
-| `kimi-k2.7-code` | `kimi-code`, `k2.7-code` | Kimi K2.7 Code | Moonshot |
-| `kimi-k2.7-code-highspeed` | `kimi-highspeed`, `k2.7-highspeed` | Kimi K2.7 Code HighSpeed | Moonshot |
+| `kimi-k3` | `k3` | Kimi K3 | Moonshot（国际站） |
+| `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot（国际站） |
+| `kimi-k2.7-code` | `kimi-code`, `k2.7-code` | Kimi K2.7 Code | Moonshot（国际站） |
+| `kimi-k2.7-code-highspeed` | `kimi-highspeed`, `k2.7-highspeed` | Kimi K2.7 Code HighSpeed | Moonshot（国际站） |
+| `kimi-cn-k3` | `kimi-cn`, `moonshot-cn`, `k3-cn` | Kimi K3 | Moonshot（国内开放平台） |
+| `kimi-cn-k2.6` | - | Kimi K2.6 | Moonshot（国内开放平台） |
+| `kimi-cn-k2.7-code` | - | Kimi K2.7 Code | Moonshot（国内开放平台） |
+| `kimi-cn-k2.7-code-highspeed` | - | Kimi K2.7 Code HighSpeed | Moonshot（国内开放平台） |
 | `minimax-m3` | `minimax`, `minimax-cn`, `mm` | MiniMax M3 | MiniMax CN |
 | `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax M3 | MiniMax Global |
 | `qwen3.5-plus` | `qwen`, `qwen3.5`, `tongyi` | Qwen3.5 Plus | 阿里云 |
@@ -213,8 +218,9 @@ ccmr claude --print --output-format json "你的问题"
 |------|----------------|-------------------|
 | DeepSeek V4 Pro | 1M | 384K |
 | DeepSeek V4 Flash | 1M | 384K |
-| Kimi K2.6 | 256K | 32K |
-| Kimi K2.7 Code / HighSpeed | 256K | 32K |
+| Kimi K3 (国际站 / 国内) | 1M | 1M（默认 128K） |
+| Kimi K2.6 (国际站 / 国内) | 256K | 32K |
+| Kimi K2.7 Code / HighSpeed (国际站 / 国内) | 256K | 32K |
 | MiniMax M3 (CN / Global) | 1M | 128K |
 | Qwen3.5 Plus | 1M | 64K |
 | Qwen3.5 Flash | 1M | 64K |
@@ -232,7 +238,8 @@ ccmr claude --print --output-format json "你的问题"
 
 ```bash
 DEEPSEEK_API_KEY=sk-xxx    # https://platform.deepseek.com/
-KIMI_API_KEY=sk-xxx        # https://platform.kimi.ai/
+KIMI_API_KEY=sk-xxx        # Kimi 国际站: https://platform.kimi.ai/
+KIMI_CN_API_KEY=sk-xxx     # Kimi 国内开放平台（与国际站不互通）: https://platform.kimi.com/
 MINIMAX_API_KEY=xxx        # MiniMax CN / Token Plan: https://platform.minimaxi.com/
 MINIMAX_GLOBAL_API_KEY=xxx # MiniMax Global: https://platform.minimax.io/
 QWEN_API_KEY=sk-xxx        # https://dashscope.console.aliyun.com/
@@ -471,6 +478,11 @@ npx claude-code-model-router start --port 9000
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.9.0
+
+- 新增 Kimi K3（Moonshot 旗舰，1M 上下文，`max_completion_tokens` 最高 1M）：国际站短名称 `kimi-k3`（别名 `k3`，沿用 `KIMI_API_KEY`）
+- 新增 Kimi 国内开放平台入口（`api.moonshot.cn/anthropic`，platform.kimi.com，原 platform.moonshot.cn）：需配置 `KIMI_CN_API_KEY`（与国际站 Key 不互通），提供 `kimi-cn-k3`（别名 `kimi-cn` / `k3-cn`）及 K2 系列 `kimi-cn-k2.6` / `kimi-cn-k2.7-code` / `kimi-cn-k2.7-code-highspeed`
 
 ### v1.8.4
 
