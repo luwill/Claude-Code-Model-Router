@@ -237,7 +237,14 @@ commander_1.program
                 failed = true;
                 console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${port} (v${result.version}) is too old to` +
                     ' report its pid.');
-                console.error(`  Stop it with: pkill -f "cli.js start --port ${port}"`);
+                if (process.platform === 'win32') {
+                    console.error(`  Find its PID (the LISTENING line): netstat -ano | findstr :${port}`);
+                    console.error('  Then stop it with: taskkill /PID <pid> /F');
+                }
+                else {
+                    console.error(`  Stop it with: pkill -f "cli.js start --port ${port}"`);
+                }
+                console.error(`  Or leave it alone and use another port: ccmr claude --gateway-port ${port + 1}`);
                 break;
             case 'unverified_gateway':
                 failed = true;
@@ -442,6 +449,8 @@ commander_1.program
                 'and cannot prove which config it uses.');
             console.error('  Stop it, then rerun - a fresh gateway will start with your current config:');
             console.error(`    ccmr stop --port ${gatewayPort}`);
+            console.error('  Or leave it alone and start fresh on another port:');
+            console.error(`    ccmr claude --gateway-port ${Number(gatewayPort) + 1}`);
         }
         else {
             console.error(`\x1b[31m[ERROR]\x1b[0m The gateway on port ${gatewayPort} belongs to a different config source.`);

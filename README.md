@@ -472,6 +472,12 @@ DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Co
 
 ## 更新日志
 
+### v1.8.4
+
+- **修复 v1.8.3 回归**：网关不再校验单条消息的 role/content——Claude Code v2.1+ 会在 `messages` 中携带 `role: "system"` 的上下文条目，v1.8.3 的白名单校验导致所有真实会话在本地报 `400 messages[1].role must be user or assistant`。网关现在只校验路由自身依赖的结构，消息协议交由上游判定
+- `ccmr stop` 遇到无法自报 PID 的旧网关（v1.8.1 及更早）时，按平台给出手动停止命令（Windows 用 `netstat` + `taskkill`，不再显示无效的 `pkill`），并提示可改用其他端口
+- `ccmr claude` 拒绝复用旧网关时，同时给出"换端口直接启动新网关"的出路，不再只有先停旧网关一条指引
+
 ### v1.8.3
 
 - 阻止 detached 网关跨项目复用错误的配置、端点或 API Key
