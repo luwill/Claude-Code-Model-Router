@@ -114,6 +114,41 @@ describe('Kimi K3: international variant and CN-platform provider', () => {
   });
 });
 
+describe('Kimi Code: coding-plan subscription provider', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('exposes the coding-plan endpoint as its own provider and key', () => {
+    // Keys come from the kimi.com member console and only work on
+    // api.kimi.com/coding - a third platform besides moonshot.cn/.ai.
+    const model = config.models['kimi-plan-k3-1m'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('k3[1m]');
+    expect(model.base_url).toBe('https://api.kimi.com/coding');
+    expect(model.api_key_env).toBe('KIMI_CODE_API_KEY');
+    expect(model.auth_type).toBe('api_key');
+    expect(model.context_window).toBe(1048576);
+    expect(manager.resolveModelName('kimi-plan')).toBe('kimi-plan-k3-1m');
+  });
+
+  it('carries the tier-gated variants with the plan model ids', () => {
+    expect(config.models['kimi-plan-k3'].model_id).toBe('k3');
+    expect(config.models['kimi-plan-k3'].context_window).toBe(262144);
+    expect(config.models['kimi-plan-for-coding'].model_id).toBe('kimi-for-coding');
+    expect(config.models['kimi-plan-for-coding-highspeed'].model_id).toBe(
+      'kimi-for-coding-highspeed'
+    );
+    expect(manager.resolveModelName('kimi-for-coding')).toBe('kimi-plan-for-coding');
+  });
+
+  it('keeps the legacy kimi-code aliases on the international K2.7 models', () => {
+    // 'kimi-code' has meant the international K2.7 Code since v1.7.1 -
+    // the subscription provider must not silently repurpose it.
+    expect(manager.resolveModelName('kimi-code')).toBe('kimi-k2.7-code');
+    expect(manager.resolveModelName('kimi-code-highspeed')).toBe('kimi-k2.7-code-highspeed');
+  });
+});
+
 describe('ConfigManager: user config merging', () => {
   it('fails closed when an explicit config path does not exist', () => {
     expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(

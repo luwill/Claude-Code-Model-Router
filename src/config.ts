@@ -112,6 +112,45 @@ export const DEFAULT_CONFIG: RouterConfig = {
         },
       },
     },
+    'kimi-plan': {
+      display_name: 'Kimi Code',
+      provider: 'moonshot-code',
+      // Kimi 会员 coding 订阅的 Anthropic 接入点。Key 来自 kimi.com 会员控制台，
+      // 与开放平台（moonshot.cn / .ai）互不相通；模型与上下文按会员档位限权。
+      base_url: 'https://api.kimi.com/coding',
+      api_key_env: 'KIMI_CODE_API_KEY',
+      auth_header: 'x-api-key',
+      auth_type: 'api_key',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: 'k3-1m',
+      variants: {
+        'k3-1m': {
+          display_name: 'Kimi K3 1M (Coding Plan)',
+          model_id: 'k3[1m]',
+          max_tokens: 1048576,
+          context_window: 1048576,
+        },
+        k3: {
+          display_name: 'Kimi K3 256K (Coding Plan)',
+          model_id: 'k3',
+          max_tokens: 131072,
+          context_window: 262144,
+        },
+        'for-coding': {
+          display_name: 'Kimi K2.7 Code (Coding Plan)',
+          model_id: 'kimi-for-coding',
+          max_tokens: 32768,
+          context_window: 262144,
+        },
+        'for-coding-highspeed': {
+          display_name: 'Kimi K2.7 Code HighSpeed (Coding Plan)',
+          model_id: 'kimi-for-coding-highspeed',
+          max_tokens: 32768,
+          context_window: 262144,
+        },
+      },
+    },
     minimax: {
       display_name: 'MiniMax CN',
       provider: 'minimax-cn',
@@ -453,6 +492,13 @@ export const DEFAULT_CONFIG: RouterConfig = {
     'kimi-cn-k2.6': 'kimi-cn-k2.6',
     'kimi-cn-k2.7-code': 'kimi-cn-k2.7-code',
     'kimi-cn-k2.7-code-highspeed': 'kimi-cn-k2.7-code-highspeed',
+    'kimi-plan': 'kimi-plan-k3-1m',
+    'kimi-plan-k3-1m': 'kimi-plan-k3-1m',
+    'kimi-plan-k3': 'kimi-plan-k3',
+    'kimi-for-coding': 'kimi-plan-for-coding',
+    'kimi-plan-for-coding': 'kimi-plan-for-coding',
+    'kimi-plan-for-coding-highspeed': 'kimi-plan-for-coding-highspeed',
+    'kimi-plan-highspeed': 'kimi-plan-for-coding-highspeed',
     minimax: 'minimax-m3',
     'minimax-cn': 'minimax-m3',
     'minimax-m3': 'minimax-m3',
@@ -1146,6 +1192,37 @@ providers:
         max_tokens: 32768
         context_window: 262144
 
+  # Kimi 会员 coding 订阅（kimi.com 会员控制台发 Key，与开放平台不互通；按档位限权）
+  kimi-plan:
+    display_name: Kimi Code
+    provider: moonshot-code
+    base_url: https://api.kimi.com/coding
+    api_key_env: KIMI_CODE_API_KEY
+    auth_header: x-api-key
+    auth_type: api_key
+    default_variant: k3-1m
+    variants:
+      k3-1m:
+        display_name: "Kimi K3 1M (Coding Plan)"
+        model_id: "k3[1m]"
+        max_tokens: 1048576
+        context_window: 1048576
+      k3:
+        display_name: "Kimi K3 256K (Coding Plan)"
+        model_id: k3
+        max_tokens: 131072
+        context_window: 262144
+      for-coding:
+        display_name: "Kimi K2.7 Code (Coding Plan)"
+        model_id: kimi-for-coding
+        max_tokens: 32768
+        context_window: 262144
+      for-coding-highspeed:
+        display_name: "Kimi K2.7 Code HighSpeed (Coding Plan)"
+        model_id: kimi-for-coding-highspeed
+        max_tokens: 32768
+        context_window: 262144
+
   minimax:
     display_name: MiniMax CN
     provider: minimax-cn
@@ -1423,6 +1500,13 @@ aliases:
   kimi-cn-k2.6: kimi-cn-k2.6
   kimi-cn-k2.7-code: kimi-cn-k2.7-code
   kimi-cn-k2.7-code-highspeed: kimi-cn-k2.7-code-highspeed
+  kimi-plan: kimi-plan-k3-1m
+  kimi-plan-k3-1m: kimi-plan-k3-1m
+  kimi-plan-k3: kimi-plan-k3
+  kimi-for-coding: kimi-plan-for-coding
+  kimi-plan-for-coding: kimi-plan-for-coding
+  kimi-plan-for-coding-highspeed: kimi-plan-for-coding-highspeed
+  kimi-plan-highspeed: kimi-plan-for-coding-highspeed
   minimax: minimax-m3
   minimax-cn: minimax-m3
   minimax-m3: minimax-m3
@@ -1508,6 +1592,9 @@ KIMI_API_KEY=
 
 # Kimi / Moonshot 国内开放平台 - https://platform.kimi.com/ (原 platform.moonshot.cn)
 KIMI_CN_API_KEY=
+
+# Kimi Code 会员 coding 订阅 - https://www.kimi.com/code/console (与开放平台 Key 不互通)
+KIMI_CODE_API_KEY=
 
 # MiniMax CN / Token Plan - https://platform.minimaxi.com/
 MINIMAX_API_KEY=
