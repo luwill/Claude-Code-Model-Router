@@ -39,6 +39,8 @@ export declare function checkGatewaySource(health: GatewayHealth, expectedSource
  * raised several layers down inside Claude Code.
  */
 export declare function checkGatewayModel(health: GatewayHealth, modelKey: string): GatewayModelCheck;
+/** Model keys the gateway can actually serve (it holds an API key for them). */
+export declare function availableModels(health: GatewayHealth): string[];
 export interface EnsureGatewayResult {
     health: GatewayHealth;
     autoStarted: boolean;

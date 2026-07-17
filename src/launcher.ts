@@ -67,6 +67,13 @@ export function checkGatewayModel(health: GatewayHealth, modelKey: string): Gate
   return { ok: true };
 }
 
+/** Model keys the gateway can actually serve (it holds an API key for them). */
+export function availableModels(health: GatewayHealth): string[] {
+  return Object.entries(health.models ?? {})
+    .filter(([, status]) => status === 'available')
+    .map(([key]) => key);
+}
+
 export interface EnsureGatewayResult {
   health: GatewayHealth;
   autoStarted: boolean;

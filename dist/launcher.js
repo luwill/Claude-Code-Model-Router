@@ -9,6 +9,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkGatewaySource = checkGatewaySource;
 exports.checkGatewayModel = checkGatewayModel;
+exports.availableModels = availableModels;
 exports.probeGateway = probeGateway;
 exports.waitForHealthy = waitForHealthy;
 exports.ensureGatewayRunning = ensureGatewayRunning;
@@ -44,6 +45,12 @@ function checkGatewayModel(health, modelKey) {
         return { ok: false, reason: 'no_api_key' };
     }
     return { ok: true };
+}
+/** Model keys the gateway can actually serve (it holds an API key for them). */
+function availableModels(health) {
+    return Object.entries(health.models ?? {})
+        .filter(([, status]) => status === 'available')
+        .map(([key]) => key);
 }
 async function probeGateway(port, timeoutMs = 1500) {
     const controller = new AbortController();

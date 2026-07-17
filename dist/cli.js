@@ -482,10 +482,25 @@ commander_1.program
             console.error(`  Gateway CCMR_HOME:     ${gateway.health.ccmr_home}`);
         }
         console.error('');
-        console.error('  This usually means an old gateway is still running. Fix it with:');
-        console.error(`    ccmr stop --port ${gatewayPort}`);
-        console.error(`    ccmr init --global    # if you have no ~/.ccmr/models.yaml yet`);
-        console.error(`    ccmr doctor ${launchModelKey}`);
+        const usable = (0, launcher_js_1.availableModels)(gateway.health);
+        if (readiness.reason === 'no_api_key' && usable.length > 0) {
+            // The gateway and its config are fine; only the chosen launch model
+            // lacks a key. "Stop + init" would rebuild the same situation.
+            console.error('  The gateway is healthy - other models do have keys. Either switch:');
+            console.error(`    ccmr use ${usable[0]}    # persist as default (gateway reloads live)`);
+            console.error(`    ccmr claude --model ${usable[0]}    # this session only`);
+            const envName = configManager.getModel(launchModelKey)?.api_key_env;
+            if (envName) {
+                console.error(`  Or give '${launchModelKey}' its key: set ${envName} in .env, then verify:`);
+                console.error(`    ccmr doctor ${launchModelKey}`);
+            }
+        }
+        else {
+            console.error('  This usually means an old gateway is still running. Fix it with:');
+            console.error(`    ccmr stop --port ${gatewayPort}`);
+            console.error(`    ccmr init --global    # if you have no ~/.ccmr/models.yaml yet`);
+            console.error(`    ccmr doctor ${launchModelKey}`);
+        }
         console.error('');
         process.exit(1);
     }

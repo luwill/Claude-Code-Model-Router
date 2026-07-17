@@ -479,6 +479,10 @@ DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Co
 
 ## 更新日志
 
+### v1.9.1
+
+- `ccmr claude` 启动模型缺少 API Key 时的指引拆分：若网关本身健康且有其他可用模型，直接提示 `ccmr use <可用模型>`（或 `--model` 单次指定、补配该模型的 Key），不再误导用户去 `ccmr stop` + `ccmr init` 重建配置；"stop + init"指引仅保留给网关完全无 Key 或不认识该模型的场景
+
 ### v1.9.0
 
 - 新增 Kimi K3（Moonshot 旗舰，1M 上下文，`max_completion_tokens` 最高 1M）：国际站短名称 `kimi-k3`（别名 `k3`，沿用 `KIMI_API_KEY`）

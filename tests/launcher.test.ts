@@ -7,6 +7,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import {
+  availableModels,
   checkGatewayModel,
   checkGatewaySource,
   probeGateway,
@@ -99,6 +100,26 @@ describe('checkGatewayModel', () => {
 
   it('does not block when an older gateway omits the models map', () => {
     expect(checkGatewayModel({ version: '1.7.1' }, 'deepseek-v4-pro')).toEqual({ ok: true });
+  });
+});
+
+describe('availableModels', () => {
+  // Drives the no_api_key guidance split in `ccmr claude`: a healthy gateway
+  // with other keyed models gets "ccmr use <model>" advice, not "stop + init".
+  it('lists only models the gateway holds a key for', () => {
+    const health = {
+      models: {
+        'kimi-k2.6': 'no_api_key',
+        'deepseek-v4-pro': 'available',
+        'kimi-cn-k3': 'available',
+      },
+    };
+    expect(availableModels(health)).toEqual(['deepseek-v4-pro', 'kimi-cn-k3']);
+  });
+
+  it('returns empty when the gateway has no keys or no models map', () => {
+    expect(availableModels({ models: { 'kimi-k2.6': 'no_api_key' } })).toEqual([]);
+    expect(availableModels({ version: '1.7.1' })).toEqual([]);
   });
 });
 
