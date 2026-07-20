@@ -27,8 +27,15 @@ defaulted to 3.5.
   I reported the merge gap and asked before touching them.
 - **Did not "fix" the 403 in code.** `qwen3.8-max` pay-go returned
   `403 AccessDenied`; a control test (`qwen3.7-max` → OK on the same key)
-  proved key+endpoint+model_id are right and the 403 is account-side
-  (preview not granted). Account state, not a router bug.
+  proved key+endpoint+model_id are right and the 403 is account-side, not a
+  router bug. **Correction (same day):** I first told the user to "go activate
+  the model," which was wrong — there is no activation button. The preview is
+  delivered *only* via the Token Plan subscription (sk-sp- keys); pay-as-you-go
+  has no path to it. I had made it the pay-go **default**, so `qwen` resolved
+  to a model that 403s for every pay-go user. Fixed in v1.11.1: reverted the
+  pay-go default to 3.7-max, removed the pay-go 3.8 variant, kept 3.8 only on
+  the qwen-plan (subscription) provider, and pointed `qwen3.8`/`qwen3.8-max`
+  aliases at the subscription model (its only working home).
 - **Did not guess a base_url from the lookalike domain.** The request pointed
   at `platform.qianwenai.com` (not Alibaba's usual `dashscope.aliyuncs.com`).
   Read the vendor's own Anthropic reference first: the API endpoint is the
@@ -46,4 +53,12 @@ user config merges over defaults per-variant. Always verify with
 `node dist/cli.js models` (discovery path), not just `ConfigManager(null)`;
 if they disagree, the user's live yaml must be patched too — and that's a
 scope decision to confirm, since those files are rarely named in the request.
-See also [[vendor-platform-split]].
+
+**Second rule (from the correction):** a brand-new model is often gated to a
+*billing plan*, not open on the account's existing billing type. A `403
+AccessDenied` on a just-launched model usually means "your billing type has no
+path to this model," NOT "click activate." Do NOT prescribe an account action
+(open/activate/申请) unless you can point to the actual control; verify the
+model is on pay-as-you-go before making it a pay-go **default**, or `qwen`
+resolves to a model that 403s for everyone. When in doubt, keep the plan-gated
+model on its plan provider only. See also [[vendor-platform-split]].
