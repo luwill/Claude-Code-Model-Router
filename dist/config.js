@@ -203,25 +203,45 @@ exports.DEFAULT_CONFIG = {
             auth_type: 'api_key',
             supports_streaming: true,
             supports_tools: true,
-            default_variant: '3.5-plus',
+            default_variant: '3.8-max',
             variants: {
-                '3.5-plus': {
-                    model_key: 'qwen3.5-plus',
-                    display_name: 'Qwen3.5 Plus',
-                    model_id: 'qwen3.5-plus',
-                    max_tokens: 65536,
-                    context_window: 1000000,
-                },
-                '3.5-flash': {
-                    model_key: 'qwen3.5-flash',
-                    display_name: 'Qwen3.5 Flash',
-                    model_id: 'qwen3.5-flash',
+                '3.8-max': {
+                    model_key: 'qwen3.8-max',
+                    display_name: 'Qwen3.8 Max',
+                    model_id: 'qwen3.8-max-preview',
                     max_tokens: 65536,
                     context_window: 1000000,
                 },
                 '3.7-max': {
                     model_key: 'qwen3.7-max',
                     display_name: 'Qwen3.7 Max',
+                    model_id: 'qwen3.7-max',
+                    max_tokens: 65536,
+                    context_window: 1000000,
+                },
+            },
+        },
+        'qwen-plan': {
+            display_name: 'Qwen Token Plan',
+            provider: 'alibaba',
+            // 千问 AI 平台 Token Plan 订阅接入点（platform.qianwenai.com）。Key 为 sk-sp- 订阅密钥，
+            // 走 DashScope 的 Anthropic 兼容端点，与按量付费同一 base_url，但按订阅额度计费。
+            base_url: 'https://dashscope.aliyuncs.com/apps/anthropic',
+            api_key_env: 'QWEN_PLAN_API_KEY',
+            auth_header: 'x-api-key',
+            auth_type: 'api_key',
+            supports_streaming: true,
+            supports_tools: true,
+            default_variant: '3.8-max',
+            variants: {
+                '3.8-max': {
+                    display_name: 'Qwen3.8 Max (Token Plan)',
+                    model_id: 'qwen3.8-max-preview',
+                    max_tokens: 65536,
+                    context_window: 1000000,
+                },
+                '3.7-max': {
+                    display_name: 'Qwen3.7 Max (Token Plan)',
                     model_id: 'qwen3.7-max',
                     max_tokens: 65536,
                     context_window: 1000000,
@@ -512,12 +532,19 @@ exports.DEFAULT_CONFIG = {
         'minimax-io': 'minimax-global-m3',
         'minimax-global-m3': 'minimax-global-m3',
         mm: 'minimax-m3',
-        qwen: 'qwen3.5-plus',
-        'qwen3.5': 'qwen3.5-plus',
-        tongyi: 'qwen3.5-plus',
+        qwen: 'qwen3.8-max',
+        tongyi: 'qwen3.8-max',
+        'qwen3.8': 'qwen3.8-max',
+        'qwen3.8-max': 'qwen3.8-max',
         'qwen-max': 'qwen3.7-max',
         'qwen3.7-max': 'qwen3.7-max',
         'qwen3.7': 'qwen3.7-max',
+        'qwen-plan': 'qwen-plan-3.8-max',
+        'qwen-plan-3.8': 'qwen-plan-3.8-max',
+        'qwen-plan-3.8-max': 'qwen-plan-3.8-max',
+        'qwen-plan-max': 'qwen-plan-3.8-max',
+        'qwen-plan-3.7': 'qwen-plan-3.7-max',
+        'qwen-plan-3.7-max': 'qwen-plan-3.7-max',
         glm: 'glm-5.2',
         'glm-5': 'glm-5.1',
         'glm-5.1': 'glm-5.1',
@@ -1196,23 +1223,38 @@ providers:
     api_key_env: QWEN_API_KEY
     auth_header: x-api-key
     auth_type: api_key
-    default_variant: 3.5-plus
+    default_variant: 3.8-max
     variants:
-      3.5-plus:
-        model_key: qwen3.5-plus
-        display_name: "Qwen3.5 Plus"
-        model_id: qwen3.5-plus
-        max_tokens: 65536
-        context_window: 1000000
-      3.5-flash:
-        model_key: qwen3.5-flash
-        display_name: "Qwen3.5 Flash"
-        model_id: qwen3.5-flash
+      3.8-max:
+        model_key: qwen3.8-max
+        display_name: "Qwen3.8 Max"
+        model_id: qwen3.8-max-preview
         max_tokens: 65536
         context_window: 1000000
       3.7-max:
         model_key: qwen3.7-max
         display_name: "Qwen3.7 Max"
+        model_id: qwen3.7-max
+        max_tokens: 65536
+        context_window: 1000000
+
+  # 千问 AI 平台 Token Plan 订阅（platform.qianwenai.com，sk-sp- 订阅 Key，与按量付费同一端点）
+  qwen-plan:
+    display_name: Qwen Token Plan
+    provider: alibaba
+    base_url: https://dashscope.aliyuncs.com/apps/anthropic
+    api_key_env: QWEN_PLAN_API_KEY
+    auth_header: x-api-key
+    auth_type: api_key
+    default_variant: 3.8-max
+    variants:
+      3.8-max:
+        display_name: "Qwen3.8 Max (Token Plan)"
+        model_id: qwen3.8-max-preview
+        max_tokens: 65536
+        context_window: 1000000
+      3.7-max:
+        display_name: "Qwen3.7 Max (Token Plan)"
         model_id: qwen3.7-max
         max_tokens: 65536
         context_window: 1000000
@@ -1451,12 +1493,19 @@ aliases:
   minimax-io: minimax-global-m3
   minimax-global-m3: minimax-global-m3
   mm: minimax-m3
-  qwen: qwen3.5-plus
-  qwen3.5: qwen3.5-plus
-  tongyi: qwen3.5-plus
+  qwen: qwen3.8-max
+  tongyi: qwen3.8-max
+  qwen3.8: qwen3.8-max
+  qwen3.8-max: qwen3.8-max
   qwen-max: qwen3.7-max
   qwen3.7-max: qwen3.7-max
   qwen3.7: qwen3.7-max
+  qwen-plan: qwen-plan-3.8-max
+  qwen-plan-3.8: qwen-plan-3.8-max
+  qwen-plan-3.8-max: qwen-plan-3.8-max
+  qwen-plan-max: qwen-plan-3.8-max
+  qwen-plan-3.7: qwen-plan-3.7-max
+  qwen-plan-3.7-max: qwen-plan-3.7-max
   glm: glm-5.2
   glm-5: glm-5.1
   glm-5.1: glm-5.1
@@ -1537,8 +1586,11 @@ MINIMAX_API_KEY=
 # MiniMax Global - https://platform.minimax.io/
 MINIMAX_GLOBAL_API_KEY=
 
-# Qwen - https://dashscope.console.aliyun.com/
+# Qwen 按量付费 - https://dashscope.console.aliyun.com/
 QWEN_API_KEY=
+
+# Qwen Token Plan 订阅 - https://platform.qianwenai.com/ (sk-sp- 订阅 Key，与按量付费端点相同)
+QWEN_PLAN_API_KEY=
 
 # GLM CN (智谱) - https://open.bigmodel.cn/
 GLM_API_KEY=

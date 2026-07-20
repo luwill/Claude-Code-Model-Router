@@ -149,6 +149,46 @@ describe('Kimi Code: coding-plan subscription provider', () => {
   });
 });
 
+describe('Qwen 3.8: flagship variant, 3.5 removal, and Token Plan provider', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('exposes qwen3.8-max as the pay-as-you-go default and bare-alias target', () => {
+    const model = config.models['qwen3.8-max'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('qwen3.8-max-preview');
+    expect(model.base_url).toBe('https://dashscope.aliyuncs.com/apps/anthropic');
+    expect(model.api_key_env).toBe('QWEN_API_KEY');
+    expect(model.max_tokens).toBe(65536);
+    expect(model.context_window).toBe(1000000);
+    // bare aliases now resolve to the new flagship; qwen-max stays on 3.7
+    expect(manager.resolveModelName('qwen')).toBe('qwen3.8-max');
+    expect(manager.resolveModelName('tongyi')).toBe('qwen3.8-max');
+    expect(manager.resolveModelName('qwen-max')).toBe('qwen3.7-max');
+  });
+
+  it('removes the qwen3.5 models and their alias', () => {
+    expect(config.models['qwen3.5-plus']).toBeUndefined();
+    expect(config.models['qwen3.5-flash']).toBeUndefined();
+    // 'qwen3.5' alias is gone -> passes through unchanged (not a real model)
+    expect(config.models[manager.resolveModelName('qwen3.5')]).toBeUndefined();
+  });
+
+  it('exposes the Token Plan subscription as its own provider and key', () => {
+    // sk-sp- keys from platform.qianwenai.com hit the same DashScope Anthropic
+    // endpoint but bill against the subscription -> a separate provider/key.
+    const model = config.models['qwen-plan-3.8-max'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('qwen3.8-max-preview');
+    expect(model.base_url).toBe('https://dashscope.aliyuncs.com/apps/anthropic');
+    expect(model.api_key_env).toBe('QWEN_PLAN_API_KEY');
+    expect(model.auth_type).toBe('api_key');
+    expect(manager.resolveModelName('qwen-plan')).toBe('qwen-plan-3.8-max');
+    expect(config.models['qwen-plan-3.7-max'].model_id).toBe('qwen3.7-max');
+    expect(config.models['qwen-plan-3.7-max'].api_key_env).toBe('QWEN_PLAN_API_KEY');
+  });
+});
+
 describe('ConfigManager: user config merging', () => {
   it('fails closed when an explicit config path does not exist', () => {
     expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(
