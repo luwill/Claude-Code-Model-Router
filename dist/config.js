@@ -203,15 +203,12 @@ exports.DEFAULT_CONFIG = {
             auth_type: 'api_key',
             supports_streaming: true,
             supports_tools: true,
-            default_variant: '3.8-max',
+            default_variant: '3.7-max',
             variants: {
-                '3.8-max': {
-                    model_key: 'qwen3.8-max',
-                    display_name: 'Qwen3.8 Max',
-                    model_id: 'qwen3.8-max-preview',
-                    max_tokens: 65536,
-                    context_window: 1000000,
-                },
+                // qwen3.8-max-preview is Token-Plan-only today; a pay-as-you-go key
+                // gets 403 Model.AccessDenied. It lives on the qwen-plan provider
+                // (sk-sp- subscription key) below, not here. Re-add a pay-go variant
+                // only once Alibaba opens the preview to pay-as-you-go.
                 '3.7-max': {
                     model_key: 'qwen3.7-max',
                     display_name: 'Qwen3.7 Max',
@@ -532,13 +529,14 @@ exports.DEFAULT_CONFIG = {
         'minimax-io': 'minimax-global-m3',
         'minimax-global-m3': 'minimax-global-m3',
         mm: 'minimax-m3',
-        qwen: 'qwen3.8-max',
-        tongyi: 'qwen3.8-max',
-        'qwen3.8': 'qwen3.8-max',
-        'qwen3.8-max': 'qwen3.8-max',
+        qwen: 'qwen3.7-max',
+        tongyi: 'qwen3.7-max',
         'qwen-max': 'qwen3.7-max',
         'qwen3.7-max': 'qwen3.7-max',
         'qwen3.7': 'qwen3.7-max',
+        // qwen3.8-max-preview is reachable only via the Token Plan provider below.
+        'qwen3.8': 'qwen-plan-3.8-max',
+        'qwen3.8-max': 'qwen-plan-3.8-max',
         'qwen-plan': 'qwen-plan-3.8-max',
         'qwen-plan-3.8': 'qwen-plan-3.8-max',
         'qwen-plan-3.8-max': 'qwen-plan-3.8-max',
@@ -1223,14 +1221,9 @@ providers:
     api_key_env: QWEN_API_KEY
     auth_header: x-api-key
     auth_type: api_key
-    default_variant: 3.8-max
+    default_variant: 3.7-max
     variants:
-      3.8-max:
-        model_key: qwen3.8-max
-        display_name: "Qwen3.8 Max"
-        model_id: qwen3.8-max-preview
-        max_tokens: 65536
-        context_window: 1000000
+      # qwen3.8-max-preview 目前仅 Token Plan 发放，按量付费调用 403，见下方 qwen-plan
       3.7-max:
         model_key: qwen3.7-max
         display_name: "Qwen3.7 Max"
@@ -1493,13 +1486,13 @@ aliases:
   minimax-io: minimax-global-m3
   minimax-global-m3: minimax-global-m3
   mm: minimax-m3
-  qwen: qwen3.8-max
-  tongyi: qwen3.8-max
-  qwen3.8: qwen3.8-max
-  qwen3.8-max: qwen3.8-max
+  qwen: qwen3.7-max
+  tongyi: qwen3.7-max
   qwen-max: qwen3.7-max
   qwen3.7-max: qwen3.7-max
   qwen3.7: qwen3.7-max
+  qwen3.8: qwen-plan-3.8-max
+  qwen3.8-max: qwen-plan-3.8-max
   qwen-plan: qwen-plan-3.8-max
   qwen-plan-3.8: qwen-plan-3.8-max
   qwen-plan-3.8-max: qwen-plan-3.8-max

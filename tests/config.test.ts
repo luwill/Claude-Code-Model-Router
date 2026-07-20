@@ -149,21 +149,20 @@ describe('Kimi Code: coding-plan subscription provider', () => {
   });
 });
 
-describe('Qwen 3.8: flagship variant, 3.5 removal, and Token Plan provider', () => {
+describe('Qwen 3.8: Token-Plan-only, 3.5 removal, pay-go stays on 3.7', () => {
   const manager = new ConfigManager(null);
   const config = manager.getConfig();
 
-  it('exposes qwen3.8-max as the pay-as-you-go default and bare-alias target', () => {
-    const model = config.models['qwen3.8-max'];
+  it('keeps the pay-as-you-go qwen provider on 3.7-max (3.8 is not pay-go)', () => {
+    // qwen3.8-max-preview returns 403 on pay-as-you-go keys (Token-Plan-only),
+    // so it must NOT be a pay-go model; the bare qwen alias stays on 3.7.
+    expect(config.models['qwen3.8-max']).toBeUndefined();
+    const model = config.models['qwen3.7-max'];
     expect(model).toBeDefined();
-    expect(model.model_id).toBe('qwen3.8-max-preview');
-    expect(model.base_url).toBe('https://dashscope.aliyuncs.com/apps/anthropic');
+    expect(model.model_id).toBe('qwen3.7-max');
     expect(model.api_key_env).toBe('QWEN_API_KEY');
-    expect(model.max_tokens).toBe(65536);
-    expect(model.context_window).toBe(1000000);
-    // bare aliases now resolve to the new flagship; qwen-max stays on 3.7
-    expect(manager.resolveModelName('qwen')).toBe('qwen3.8-max');
-    expect(manager.resolveModelName('tongyi')).toBe('qwen3.8-max');
+    expect(manager.resolveModelName('qwen')).toBe('qwen3.7-max');
+    expect(manager.resolveModelName('tongyi')).toBe('qwen3.7-max');
     expect(manager.resolveModelName('qwen-max')).toBe('qwen3.7-max');
   });
 
@@ -174,9 +173,10 @@ describe('Qwen 3.8: flagship variant, 3.5 removal, and Token Plan provider', () 
     expect(config.models[manager.resolveModelName('qwen3.5')]).toBeUndefined();
   });
 
-  it('exposes the Token Plan subscription as its own provider and key', () => {
+  it('serves qwen3.8-max-preview only through the Token Plan provider', () => {
     // sk-sp- keys from platform.qianwenai.com hit the same DashScope Anthropic
-    // endpoint but bill against the subscription -> a separate provider/key.
+    // endpoint but bill against the subscription -> a separate provider/key,
+    // and the only place the preview model actually resolves.
     const model = config.models['qwen-plan-3.8-max'];
     expect(model).toBeDefined();
     expect(model.model_id).toBe('qwen3.8-max-preview');
@@ -184,6 +184,9 @@ describe('Qwen 3.8: flagship variant, 3.5 removal, and Token Plan provider', () 
     expect(model.api_key_env).toBe('QWEN_PLAN_API_KEY');
     expect(model.auth_type).toBe('api_key');
     expect(manager.resolveModelName('qwen-plan')).toBe('qwen-plan-3.8-max');
+    // the intuitive 3.8 names route to the subscription model (its only home)
+    expect(manager.resolveModelName('qwen3.8')).toBe('qwen-plan-3.8-max');
+    expect(manager.resolveModelName('qwen3.8-max')).toBe('qwen-plan-3.8-max');
     expect(config.models['qwen-plan-3.7-max'].model_id).toBe('qwen3.7-max');
     expect(config.models['qwen-plan-3.7-max'].api_key_env).toBe('QWEN_PLAN_API_KEY');
   });
