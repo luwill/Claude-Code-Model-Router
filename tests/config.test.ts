@@ -123,11 +123,16 @@ describe('Kimi Code: coding-plan subscription provider', () => {
     // api.kimi.com/coding - a third platform besides moonshot.cn/.ai.
     const model = config.models['kimi-plan-k3-1m'];
     expect(model).toBeDefined();
-    expect(model.model_id).toBe('k3[1m]');
+    // Upstream Model ID is plain 'k3'; 'k3[1m]' is a Claude-Code-only env-var
+    // string the API rejects with 401. 1M context is carried by context_window.
+    expect(model.model_id).toBe('k3');
     expect(model.base_url).toBe('https://api.kimi.com/coding');
     expect(model.api_key_env).toBe('KIMI_CODE_API_KEY');
     expect(model.auth_type).toBe('api_key');
     expect(model.context_window).toBe(1048576);
+    // k3-1m and k3 hit the same upstream model, differing only by context window
+    expect(config.models['kimi-plan-k3'].model_id).toBe('k3');
+    expect(config.models['kimi-plan-k3'].context_window).toBe(262144);
     expect(manager.resolveModelName('kimi-plan')).toBe('kimi-plan-k3-1m');
   });
 

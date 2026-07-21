@@ -527,6 +527,10 @@ DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Co
 
 ## 更新日志
 
+### v1.11.2
+
+- 修复 Kimi Code 订阅 `kimi-plan-k3-1m` 报 `401 ... recognized as other:k3[1m]`：上游 Model ID 应为纯 `k3`，`k3[1m]` 只是 Claude Code 原生环境变量写法（原生 CC 会剥掉 `[1m]` 再发 `k3`），作为第三方网关必须发 `k3`。改 `model_id: k3[1m] → k3`；1M 上下文仍由 `context_window` → `CLAUDE_CODE_AUTO_COMPACT_WINDOW` 提供，`kimi-plan-k3-1m` 与 `kimi-plan-k3` 现共用上游模型 `k3`、仅上下文窗口不同（依据 [Kimi Code 官方文档](https://www.kimi.com/code/docs/third-party-tools/claude-code.html)：k3[1m] 仅 Claude Code 环境变量场景需要，API 请求只填 k3）
+
 ### v1.11.1
 
 - 修正 v1.11.0 的一个错误假设：**`qwen3.8-max-preview` 目前仅通过千问 Token Plan（`sk-sp-` 订阅 Key）发放**，按量付费账号调用返回 `403 Model.AccessDenied`（权限问题，且无自助开通入口）。因此：

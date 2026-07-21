@@ -127,7 +127,12 @@ export const DEFAULT_CONFIG: RouterConfig = {
       variants: {
         'k3-1m': {
           display_name: 'Kimi K3 1M (Coding Plan)',
-          model_id: 'k3[1m]',
+          // Upstream Model ID is plain 'k3'. The 'k3[1m]' string is a
+          // Claude-Code-only env-var convention (native CC strips [1m] and
+          // sends 'k3'); the API rejects 'k3[1m]' with 401 "model id does not
+          // exist". The 1M context comes from context_window ->
+          // CLAUDE_CODE_AUTO_COMPACT_WINDOW, not from the model id.
+          model_id: 'k3',
           max_tokens: 1048576,
           context_window: 1048576,
         },
@@ -1229,7 +1234,9 @@ providers:
     variants:
       k3-1m:
         display_name: "Kimi K3 1M (Coding Plan)"
-        model_id: "k3[1m]"
+        # 上游 Model ID 是纯 'k3'；'k3[1m]' 仅是 Claude Code 环境变量写法，API 会 401。
+        # 1M 上下文由 context_window -> CLAUDE_CODE_AUTO_COMPACT_WINDOW 提供。
+        model_id: k3
         max_tokens: 1048576
         context_window: 1048576
       k3:
