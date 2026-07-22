@@ -226,9 +226,10 @@ exports.DEFAULT_CONFIG = {
         'qwen-plan': {
             display_name: 'Qwen Token Plan',
             provider: 'alibaba',
-            // 千问 AI 平台 Token Plan 订阅接入点（platform.qianwenai.com）。Key 为 sk-sp- 订阅密钥，
-            // 走 DashScope 的 Anthropic 兼容端点，与按量付费同一 base_url，但按订阅额度计费。
-            base_url: 'https://dashscope.aliyuncs.com/apps/anthropic',
+            // 千问 AI 平台 Token Plan 订阅（platform.qianwenai.com）。Key 为 sk-sp- 订阅密钥，
+            // 走 Token Plan 专属 Anthropic 接入点（非按量付费的 dashscope.aliyuncs.com——
+            // sk-sp- key 打过去会 403 invalid api-key）。Bearer 与 x-api-key 均实测可用。
+            base_url: 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic',
             api_key_env: 'QWEN_PLAN_API_KEY',
             auth_header: 'x-api-key',
             auth_type: 'api_key',
@@ -1238,11 +1239,12 @@ providers:
         max_tokens: 65536
         context_window: 1000000
 
-  # 千问 AI 平台 Token Plan 订阅（platform.qianwenai.com，sk-sp- 订阅 Key，与按量付费同一端点）
+  # 千问 AI 平台 Token Plan 订阅（platform.qianwenai.com，sk-sp- 订阅 Key）
+  # 专属接入点，非按量付费的 dashscope 端点（sk-sp- key 打过去会 403）
   qwen-plan:
     display_name: Qwen Token Plan
     provider: alibaba
-    base_url: https://dashscope.aliyuncs.com/apps/anthropic
+    base_url: https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
     api_key_env: QWEN_PLAN_API_KEY
     auth_header: x-api-key
     auth_type: api_key
@@ -1589,7 +1591,7 @@ MINIMAX_GLOBAL_API_KEY=
 # Qwen 按量付费 - https://dashscope.console.aliyun.com/
 QWEN_API_KEY=
 
-# Qwen Token Plan 订阅 - https://platform.qianwenai.com/ (sk-sp- 订阅 Key，与按量付费端点相同)
+# Qwen Token Plan 订阅 - https://platform.qianwenai.com/ (sk-sp- 订阅 Key，专属接入点 token-plan.cn-beijing.maas.aliyuncs.com)
 QWEN_PLAN_API_KEY=
 
 # GLM CN (智谱) - https://open.bigmodel.cn/

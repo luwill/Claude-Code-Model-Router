@@ -179,13 +179,16 @@ describe('Qwen 3.8: Token-Plan-only, 3.5 removal, pay-go stays on 3.7', () => {
   });
 
   it('serves qwen3.8-max-preview only through the Token Plan provider', () => {
-    // sk-sp- keys from platform.qianwenai.com hit the same DashScope Anthropic
-    // endpoint but bill against the subscription -> a separate provider/key,
-    // and the only place the preview model actually resolves.
+    // sk-sp- keys from platform.qianwenai.com only work on the dedicated
+    // token-plan endpoint (they 403 on the pay-as-you-go dashscope one), so
+    // the subscription is its own provider/key + base_url — and the only
+    // place the preview model actually resolves.
     const model = config.models['qwen-plan-3.8-max'];
     expect(model).toBeDefined();
     expect(model.model_id).toBe('qwen3.8-max-preview');
-    expect(model.base_url).toBe('https://dashscope.aliyuncs.com/apps/anthropic');
+    expect(model.base_url).toBe(
+      'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic'
+    );
     expect(model.api_key_env).toBe('QWEN_PLAN_API_KEY');
     expect(model.auth_type).toBe('api_key');
     expect(manager.resolveModelName('qwen-plan')).toBe('qwen-plan-3.8-max');
