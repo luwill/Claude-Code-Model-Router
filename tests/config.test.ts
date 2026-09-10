@@ -282,27 +282,103 @@ describe('GLM-5.3: new flagship default on both plan endpoints', () => {
   });
 });
 
-describe('DeepSeek Vision: experimental image model on the shared endpoint', () => {
+describe('DeepSeek V4.1 Flash GA: deepseek-flash replaces the whole V4 Flash line', () => {
   const manager = new ConfigManager(null);
   const config = manager.getConfig();
 
-  it('exposes deepseek-v4-flash-vision-exp with the shared DeepSeek connection', () => {
-    // api-docs.deepseek.com/guides/vision + /quick_start/pricing: Anthropic
-    // format on api.deepseek.com/anthropic, 1M context, 384K max output,
-    // Anthropic image blocks (base64/url/file) accepted in user messages.
-    const model = config.models['deepseek-v4-flash-vision-exp'];
+  it('exposes deepseek-flash with the GA model name', () => {
+    // Launch post 2026-09-10 ("将模型名称更改为 deepseek-flash 即可调用") +
+    // api-docs.deepseek.com/quick_start/pricing: 1M context, 384K max
+    // output, natively multimodal. Verified live: text 200 in 0.62s, and a
+    // base64 image block is genuinely read (blue test PNG -> "Blue",
+    // input_tokens 227).
+    const model = config.models['deepseek-flash'];
     expect(model).toBeDefined();
-    expect(model.model_id).toBe('deepseek-v4-flash-vision-exp');
+    expect(model.model_id).toBe('deepseek-flash');
     expect(model.max_tokens).toBe(393216);
     expect(model.context_window).toBe(1048576);
     expect(model.base_url).toBe('https://api.deepseek.com/anthropic');
     expect(model.api_key_env).toBe('DEEPSEEK_API_KEY');
   });
 
-  it('adds vision aliases without touching the text default', () => {
-    expect(manager.resolveModelName('deepseek-vision')).toBe('deepseek-v4-flash-vision-exp');
-    expect(manager.resolveModelName('ds-vision')).toBe('deepseek-v4-flash-vision-exp');
+  it('retires the V4 Flash, Vision Exp and dated beta model keys', () => {
+    // The vendor took V4 Flash and V4 Flash Vision Exp offline; all three
+    // retired ids now echo back model "deepseek-flash" upstream, so keeping
+    // them as separate model keys would advertise models that no longer
+    // exist.
+    expect(config.models['deepseek-v4-flash']).toBeUndefined();
+    expect(config.models['deepseek-v4-flash-vision-exp']).toBeUndefined();
+    expect(config.models['deepseek-v4.1-flash-exp']).toBeUndefined();
+  });
+
+  it('keeps the surviving short names pointing at deepseek-flash', () => {
+    for (const alias of [
+      'deepseek-flash',
+      'deepseek-chat',
+      'deepseek-vision',
+      'ds-vision',
+      'deepseek-4.1-flash',
+      'deepseek-v4.1-flash',
+      'ds-4.1',
+    ]) {
+      expect(manager.resolveModelName(alias)).toBe('deepseek-flash');
+    }
+  });
+
+  it('does not alias the retired ids back to deepseek-flash (cycle guard)', () => {
+    // Configs generated before 1.18 contain the opposite alias
+    // (deepseek-flash -> deepseek-v4-flash) and user configs merge over
+    // DEFAULT_CONFIG, so adding the reverse mapping here would create an
+    // alias cycle and break every command on upgrade. Observed live.
+    expect(DEFAULT_CONFIG.aliases['deepseek-v4-flash']).toBeUndefined();
+    expect(DEFAULT_CONFIG.aliases['deepseek-v4-flash-vision-exp']).toBeUndefined();
+  });
+
+  it('still loads when merged over a pre-1.18 user config', () => {
+    const file = writeTempConfig(`default_model: deepseek-v4-pro
+providers:
+  deepseek:
+    display_name: DeepSeek
+    provider: deepseek
+    base_url: https://api.deepseek.com/anthropic
+    api_key_env: DEEPSEEK_API_KEY
+    auth_header: x-api-key
+    auth_type: api_key
+    default_variant: v4-pro
+    variants:
+      v4-pro:
+        display_name: "DeepSeek V4 Pro"
+        model_id: deepseek-v4-pro
+        max_tokens: 393216
+        context_window: 1048576
+      v4-flash:
+        display_name: "DeepSeek V4 Flash"
+        model_id: deepseek-v4-flash
+        max_tokens: 393216
+        context_window: 1048576
+aliases:
+  deepseek-flash: deepseek-v4-flash
+  deepseek-chat: deepseek-v4-flash
+`);
+    const legacy = new ConfigManager(file);
+    expect(legacy.resolveModelName('deepseek-flash')).toBe('deepseek-v4-flash');
+    expect(legacy.getConfig().models['deepseek-flash']).toBeDefined();
+  });
+
+  it('leaves V4 Pro and the bare deepseek alias in place', () => {
+    // Launch post: from 2026-09-14 12:00 CST deepseek-v4-pro is routed to
+    // V4.1 Flash and billed at its price until V4.1 Pro ships. The id still
+    // answers as v4-pro today (verified live), so the entry stays.
+    expect(config.models['deepseek-v4-pro'].model_id).toBe('deepseek-v4-pro');
     expect(manager.resolveModelName('deepseek')).toBe('deepseek-v4-pro');
+  });
+
+  it('makes deepseek-flash the shipped default model', () => {
+    // V4 Pro would otherwise stay the default past 2026-09-14 12:00 CST,
+    // when the vendor starts routing it to V4.1 Flash anyway -- that would
+    // show "DeepSeek V4 Pro" while actually running V4.1 Flash.
+    expect(config.default_model).toBe('deepseek-flash');
+    expect(config.models[config.default_model]).toBeDefined();
   });
 });
 

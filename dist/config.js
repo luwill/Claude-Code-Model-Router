@@ -16,7 +16,7 @@ const js_yaml_1 = __importDefault(require("js-yaml"));
 const dotenv_1 = require("dotenv");
 const paths_js_1 = require("./paths.js");
 exports.DEFAULT_CONFIG = {
-    default_model: 'deepseek-v4-pro',
+    default_model: 'deepseek-flash',
     providers: {
         deepseek: {
             display_name: 'DeepSeek',
@@ -29,23 +29,23 @@ exports.DEFAULT_CONFIG = {
             supports_tools: true,
             default_variant: 'v4-pro',
             variants: {
+                // Being retired by the vendor: from 2026-09-14 12:00 CST this id is
+                // routed to V4.1 Flash and billed at its price, until V4.1 Pro
+                // ships. Kept because it still answers as V4 Pro today.
                 'v4-pro': {
                     display_name: 'DeepSeek V4 Pro',
                     model_id: 'deepseek-v4-pro',
                     max_tokens: 393216,
                     context_window: 1048576,
                 },
-                'v4-flash': {
-                    display_name: 'DeepSeek V4 Flash',
-                    model_id: 'deepseek-v4-flash',
-                    max_tokens: 393216,
-                    context_window: 1048576,
-                },
-                // Only DeepSeek model that accepts image input (Anthropic image
-                // blocks in user messages); the text models 400 on images.
-                'v4-flash-vision-exp': {
-                    display_name: 'DeepSeek V4 Flash Vision (Exp)',
-                    model_id: 'deepseek-v4-flash-vision-exp',
+                // DeepSeek V4.1 Flash (GA 2026-09-10): 552B MoE, natively
+                // multimodal, and the vendor's replacement for the whole V4 Flash
+                // line -- deepseek-v4-flash and deepseek-v4-flash-vision-exp were
+                // taken offline and are now routed here, so they live on as aliases
+                // rather than as models of their own.
+                flash: {
+                    display_name: 'DeepSeek V4.1 Flash',
+                    model_id: 'deepseek-flash',
                     max_tokens: 393216,
                     context_window: 1048576,
                 },
@@ -561,10 +561,19 @@ exports.DEFAULT_CONFIG = {
         deepseek: 'deepseek-v4-pro',
         'deepseek-v4': 'deepseek-v4-pro',
         'deepseek-pro': 'deepseek-v4-pro',
-        'deepseek-flash': 'deepseek-v4-flash',
-        'deepseek-chat': 'deepseek-v4-flash',
-        'deepseek-vision': 'deepseek-v4-flash-vision-exp',
-        'ds-vision': 'deepseek-v4-flash-vision-exp',
+        'deepseek-flash': 'deepseek-flash',
+        'deepseek-chat': 'deepseek-flash',
+        'deepseek-4.1-flash': 'deepseek-flash',
+        'deepseek-v4.1-flash': 'deepseek-flash',
+        'ds-4.1': 'deepseek-flash',
+        // Vision aliases now point at V4.1 Flash, which is natively multimodal.
+        // NOTE: deepseek-v4-flash / -vision-exp are deliberately NOT aliased back
+        // to deepseek-flash. Configs generated before 1.18 alias
+        // deepseek-flash -> deepseek-v4-flash, and user configs merge over these
+        // defaults, so the reverse alias would form a cycle and make every
+        // command fail with "Invalid config file".
+        'deepseek-vision': 'deepseek-flash',
+        'ds-vision': 'deepseek-flash',
         ds: 'deepseek-v4-pro',
         kimi: 'kimi-k2.6',
         'kimi-k2': 'kimi-k2.6',
@@ -1154,7 +1163,7 @@ function generateConfigFile() {
 #       model_id: deepseek-v4-pro
 #       fallback: [kimi-k2.6, glm-5.2]
 
-default_model: deepseek-v4-pro
+default_model: deepseek-flash
 
 providers:
   deepseek:
@@ -1166,20 +1175,20 @@ providers:
     auth_type: api_key
     default_variant: v4-pro
     variants:
+      # 官方计划下线：2026-09-14 12:00 起该 id 的请求全部路由到 V4.1 Flash 并按其
+      # 单价计费，直到 V4.1 Pro 上线；目前仍返回真实 V4 Pro，故保留
       v4-pro:
         display_name: "DeepSeek V4 Pro"
         model_id: deepseek-v4-pro
         max_tokens: 393216
         context_window: 1048576
-      v4-flash:
-        display_name: "DeepSeek V4 Flash"
-        model_id: deepseek-v4-flash
-        max_tokens: 393216
-        context_window: 1048576
-      # 唯一支持图片输入的 DeepSeek 模型（Anthropic image block）；文本模型收到图片会 400
-      v4-flash-vision-exp:
-        display_name: "DeepSeek V4 Flash Vision (Exp)"
-        model_id: deepseek-v4-flash-vision-exp
+      # DeepSeek V4.1 Flash（2026-09-10 正式发布）：552B MoE，原生多模态，
+      # 官方用它替代整条 V4 Flash 线——deepseek-v4-flash 与
+      # deepseek-v4-flash-vision-exp 已下线并被路由到这里，因此二者在下方
+      # 保留为别名，不再是独立模型
+      flash:
+        display_name: "DeepSeek V4.1 Flash"
+        model_id: deepseek-flash
         max_tokens: 393216
         context_window: 1048576
 
@@ -1583,10 +1592,17 @@ aliases:
   deepseek: deepseek-v4-pro
   deepseek-v4: deepseek-v4-pro
   deepseek-pro: deepseek-v4-pro
-  deepseek-flash: deepseek-v4-flash
-  deepseek-chat: deepseek-v4-flash
-  deepseek-vision: deepseek-v4-flash-vision-exp
-  ds-vision: deepseek-v4-flash-vision-exp
+  deepseek-flash: deepseek-flash
+  deepseek-chat: deepseek-flash
+  deepseek-4.1-flash: deepseek-flash
+  deepseek-v4.1-flash: deepseek-flash
+  ds-4.1: deepseek-flash
+  # 视觉别名改指 V4.1 Flash（原生多模态）。注意：不要把 deepseek-v4-flash /
+  # deepseek-v4-flash-vision-exp 反向别名到 deepseek-flash——1.18 之前生成的
+  # 配置里有 deepseek-flash -> deepseek-v4-flash，用户配置合并在默认之上会
+  # 形成别名环，导致所有命令报 "Invalid config file"
+  deepseek-vision: deepseek-flash
+  ds-vision: deepseek-flash
   ds: deepseek-v4-pro
   kimi: kimi-k2.6
   kimi-k2: kimi-k2.6

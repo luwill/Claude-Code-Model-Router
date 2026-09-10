@@ -181,9 +181,8 @@ ccmr claude --print --output-format json "你的问题"
 
 | 短名称 | 版本别名 | 模型 | 提供商 |
 |--------|----------|------|--------|
-| `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro | DeepSeek |
-| `deepseek-v4-flash` | `deepseek-flash`, `deepseek-chat` | DeepSeek V4 Flash | DeepSeek |
-| `deepseek-v4-flash-vision-exp` | `deepseek-vision`, `ds-vision` | DeepSeek V4 Flash Vision（实验版，支持图片输入） | DeepSeek |
+| `deepseek-v4-pro` | `deepseek`, `deepseek-v4`, `deepseek-pro`, `ds` | DeepSeek V4 Pro（官方计划下线，09-14 12:00 起路由到 V4.1 Flash） | DeepSeek |
+| `deepseek-flash` | `deepseek-chat`, `deepseek-4.1-flash`, `ds-4.1`, `deepseek-vision`, `ds-vision`, `deepseek-v4-flash` | DeepSeek V4.1 Flash（原生多模态） | DeepSeek |
 | `kimi-k3` | `k3` | Kimi K3 | Moonshot（国际站） |
 | `kimi-k2.6` | `kimi`, `kimi-k2`, `moonshot` | Kimi K2.6 | Moonshot（国际站） |
 | `kimi-k2.7-code` | `kimi-code`, `k2.7-code` | Kimi K2.7 Code | Moonshot（国际站） |
@@ -227,8 +226,7 @@ ccmr claude --print --output-format json "你的问题"
 | 模型 | Context Window | Max Output Tokens |
 |------|----------------|-------------------|
 | DeepSeek V4 Pro | 1M | 384K |
-| DeepSeek V4 Flash | 1M | 384K |
-| DeepSeek V4 Flash Vision (Exp) | 1M | 384K |
+| DeepSeek V4.1 Flash | 1M | 384K |
 | Kimi K3 (国际站 / 国内) | 1M | 1M（默认 128K） |
 | Kimi K2.6 (国际站 / 国内) | 256K | 32K |
 | Kimi K2.7 Code / HighSpeed (国际站 / 国内) | 256K | 32K |
@@ -420,7 +418,7 @@ npx claude-code-model-router claude
 /model qwen-plan  # 切换到 Qwen3.8 Max（千问 Token Plan 订阅）
 /model glm        # 切换到 GLM-5.3（智谱 Coding Plan 订阅）
 /model glm-global # 切换到 GLM-5.3（国际 Z.ai）
-/model deepseek-vision # 切换到 DeepSeek V4 Flash Vision（实验版，支持图片输入）
+/model deepseek-flash # 切换到 DeepSeek V4.1 Flash（原生多模态，支持图片输入）
 /model qwen-flash # 切换到 Qwen3.8 Flash（按量付费，多模态）
 /model glm-flash  # 切换到 GLM-5.3-Flash（智谱 Coding Plan 订阅，原生多模态）
 /model seed       # 切换到 Doubao Seed 2.1 Pro（火山方舟 按量付费）
@@ -437,8 +435,8 @@ npx claude-code-model-router claude
 /model mimo-payg      # 切换到 MiMo V2.5 Pro（按量付费）
 
 # 使用版本别名（明确指定版本）
-/model deepseek-v4-pro           # DeepSeek V4 Pro
-/model deepseek-v4-flash         # DeepSeek V4 Flash
+/model deepseek-v4-pro           # DeepSeek V4 Pro（09-14 起上游路由到 V4.1 Flash）
+/model deepseek-flash            # DeepSeek V4.1 Flash（别名 deepseek-chat / ds-4.1 / deepseek-vision）
 /model glm-plan-5.3              # GLM-5.3（智谱 Coding Plan 订阅）
 /model glm-plan-5.2              # GLM-5.2（智谱 Coding Plan 订阅）
 /model glm-plan-5.3-flash        # GLM-5.3-Flash（智谱 Coding Plan 订阅；别名 glm-flash）
@@ -544,6 +542,19 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.18.0
+
+- **DeepSeek V4.1 Flash 正式版接入**（官方 2026-09-10 发布公告 / [定价页](https://api-docs.deepseek.com/quick_start/pricing)）：正式模型名 `deepseek-flash`，取代 09-08 的内测 id（`deepseek-v4.1-flash-expires-on-0910`，已过期）。552B MoE、Causal-Encoder-Decoder 非对称结构（输入激活 8B / 输出激活 16B）、原生多模态视觉理解，1M 上下文、最大输出 384K。实测：文本 200（0.62s）；base64 image block 真实进入上下文（8×8 纯蓝图正确答 "Blue"，input_tokens 227）
+- **V4 Flash 与 V4 Flash Vision Exp 已被官方下线**：模型条目 `deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`、`deepseek-v4.1-flash-exp` 一并移除，但这些名字**保留为别名指向 `deepseek-flash`**，既有配置和 `/model` 习惯不受影响（上游同样把这些 id 路由到 V4.1 Flash——实测三者返回的 `model` 字段均为 `deepseek-flash`）。`deepseek-vision` / `ds-vision` 也指向新模型，语义仍然成立（V4.1 Flash 原生多模态）
+- **价格下调**（09-10 12:00 生效，仍为峰谷定价、闲时为高峰一半）：`deepseek-flash` 每百万 tokens 输入 $0.15（闲时）/ $0.3（高峰），输出 $0.6 / $1.2，缓存命中输入 $0.003 / $0.006
+- **升级提示**：本次移除了三个模型条目，但**没有**把 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 反向别名到 `deepseek-flash`——1.18 之前生成的 `models.yaml` 里有 `deepseek-flash: deepseek-v4-flash`，两者相遇会形成别名环让配置整体失效（已加回归测试锁定）。老配置升级后仍可正常加载：这些名字会继续解析到你 yaml 里保留的旧条目，上游暂时路由到 V4.1 Flash。但上游的兼容路由是"暂时"的，建议重新生成 `models.yaml`（备份旧文件后 `ccmr init`）以切到新条目
+- **`deepseek-v4-pro` 进入下线流程，默认模型改为 `deepseek-flash`**：官方公告称北京时间 2026-09-14 12:00 之后，访问该 id 的请求将全部路由到 V4.1 Flash 并按其单价计费，直到 V4.1 Pro 上线。目前该 id 仍返回真实 V4 Pro（实测），故条目与 `deepseek` / `ds` 别名保留；但内置 `default_model` 已从 `deepseek-v4-pro` 切到 `deepseek-flash`，避免 09-14 之后出现"显示 V4 Pro、实际跑 V4.1 Flash"的错位。已有 `models.yaml` 的用户不受影响（用户配置里的 `default_model` 优先），需要时用 `ccmr use deepseek-flash` 切换
+
+### v1.17.0
+
+- **新增 DeepSeek V4.1 Flash（内测）**：模型 `deepseek-v4.1-flash-exp`（别名 `deepseek-4.1-flash` / `deepseek-v4.1-flash` / `ds-4.1`），上游 id `deepseek-v4.1-flash-expires-on-0910`。来源为 DeepSeek 官方小助手 2026-09-08 公告：新模型结构、**原生多模态**、计费同 V4 Flash、每账号限 20 并发，**id 于 2026-09-10 过期**（正式 id 发布后本条目会移除或替换）。官方暂无文档页，上下文/最大输出按公告"计费同 V4 Flash"继承 V4 Flash 的 1M / 384K（API 实测不校验 `max_tokens`，无法用报错探测上限）。实测：文本调用 200（0.34s）；Anthropic base64 image block 真实进入上下文（8×8 纯红图正确答"Red"，input_tokens 227），对照组 `deepseek-v4-flash` 同请求只收到占位文本。默认模型不变（`deepseek` 仍指向 V4 Pro）
+- **修正过时说明**：DeepSeek 文本模型收到图片已不再返回 400——现为端点**静默替换为"unsupported image"占位文本**（2026-09-08 实测），配置注释与文档已同步更新
 
 ### v1.16.0
 
