@@ -22,6 +22,7 @@ import { ccmrHome } from './paths.js';
 import { startServer } from './server.js';
 import { VERSION } from './version.js';
 import { withContextSuffix } from './model-suffix.js';
+import { fetchLatestVersion, installLatest, planUpdate, PACKAGE_NAME } from './update.js';
 
 program
   .name('ccmr')
@@ -708,6 +709,109 @@ program
     });
   });
 
+// Update command - reinstall the CLI from npm
+const SUPPORTED_PACKAGE_MANAGERS = ['npm', 'pnpm', 'yarn', 'bun'];
+
+program
+  .command('update')
+  .description(`Update ccmr to the latest published version (${PACKAGE_NAME}@latest)`)
+  .option('--check', 'Only report whether an update is available; install nothing')
+  .option(
+    '--package-manager <name>',
+    `Package manager for the global install (${SUPPORTED_PACKAGE_MANAGERS.join(', ')})`,
+    'npm'
+  )
+  .action(async (options) => {
+    // The value becomes argv[0] of a spawned process, so keep it to a known
+    // set rather than forwarding whatever was typed.
+    const packageManager = String(options.packageManager);
+    if (!SUPPORTED_PACKAGE_MANAGERS.includes(packageManager)) {
+      console.error(
+        `Unsupported package manager '${packageManager}'. ` +
+          `Expected one of: ${SUPPORTED_PACKAGE_MANAGERS.join(', ')}`
+      );
+      process.exit(1);
+    }
+
+    let latest: string;
+    try {
+      latest = await fetchLatestVersion();
+    } catch (error) {
+      console.error('');
+      console.error('Could not reach the npm registry to check for updates.');
+      console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+      console.error('');
+      console.error(`You can still update manually:  ${packageManager} install -g ${PACKAGE_NAME}@latest`);
+      console.error('');
+      process.exit(1);
+      return;
+    }
+
+    const plan = planUpdate(VERSION, latest);
+    console.log('');
+    console.log(`Installed: ${plan.current}`);
+    console.log(`Latest:    ${plan.latest}`);
+    console.log('');
+
+    if (plan.action === 'up-to-date') {
+      // Also covers a local build ahead of the registry, where reinstalling
+      // would silently downgrade the user.
+      console.log('Already up to date. Nothing to do.');
+      console.log('');
+      return;
+    }
+
+    if (options.check) {
+      console.log(`An update is available. Run 'ccmr update' to install it.`);
+      console.log('');
+      return;
+    }
+
+    console.log(`Updating with ${packageManager}...`);
+    console.log('');
+
+    let exitCode: number | null;
+    let command: string;
+    try {
+      ({ exitCode, command } = await installLatest(packageManager));
+    } catch (error) {
+      console.error('');
+      console.error(`Could not run '${packageManager}': ` +
+        `${error instanceof Error ? error.message : String(error)}`);
+      console.error('');
+      process.exit(1);
+      return;
+    }
+
+    if (exitCode !== 0) {
+      console.error('');
+      console.error(`Update failed (${command} exited with code ${exitCode}).`);
+      console.error('If this is a permissions error, install into a user-owned prefix');
+      console.error('or re-run the command yourself with the privileges your setup needs.');
+      console.error('');
+      process.exit(exitCode ?? 1);
+      return;
+    }
+
+    console.log('');
+    console.log(`Updated to ${plan.latest}.`);
+
+    // A gateway started from the old build keeps serving the old code until
+    // it is restarted; config hot-reload does not cover a package upgrade.
+    const running = await discoverGateways();
+    const stale = running.filter((gateway) => gateway.version && gateway.version !== plan.latest);
+    if (stale.length > 0) {
+      console.log('');
+      console.log('These running gateways still serve the previous build:');
+      for (const gateway of stale) {
+        console.log(`  port ${gateway.port}  (v${gateway.version}${gateway.pid ? `, pid ${gateway.pid}` : ''})`);
+      }
+      console.log('');
+      console.log(`Restart them to pick up ${plan.latest}:  ccmr stop --port <port>  then  ccmr start`);
+    }
+    console.log('');
+  });
+
 // Parse arguments
 program.parse();
 
@@ -731,6 +835,7 @@ if (!process.argv.slice(2).length) {
   console.log('  doctor    Check model connectivity (real 1-token requests)');
   console.log('  stats     Show per-model usage from the running gateway');
   console.log('  claude    Launch Claude Code with gateway (auto-starts it)');
+  console.log('  update    Update ccmr to the latest published version');
   console.log('');
   console.log('Use --help for more information.');
   console.log('');

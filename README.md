@@ -83,6 +83,11 @@ npx claude-code-model-router doctor seed kimi  # 只检查指定模型
 # 查看网关的按模型用量统计（请求数 / 错误数 / tokens）
 npx claude-code-model-router stats
 
+# 更新到 npm 上的最新版本（等同 npm install -g claude-code-model-router@latest）
+npx claude-code-model-router update
+npx claude-code-model-router update --check            # 只查有没有新版，不安装
+npx claude-code-model-router update --package-manager pnpm  # npm / pnpm / yarn / bun
+
 # 启动 Claude Code（网关模式；网关未启动时会自动拉起）
 npx claude-code-model-router claude
 npx claude-code-model-router claude --gateway-port 9000  # 自定义网关端口
@@ -542,6 +547,15 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.20.0
+
+- **新增 `ccmr update`**：一条命令更新到 npm 上的最新版本，等同 `npm install -g claude-code-model-router@latest`
+  - 先向 npm registry 查已发布版本并与本机版本做**数值比较**（避免 `1.9.0` 被字符串比较误判为高于 `1.10.0`），已是最新则不做任何安装
+  - **本地版本领先 registry 时也判定为最新**，不会把未发布的本地构建降级回线上版本
+  - `--check` 只报告不安装；`--package-manager` 支持 `npm` / `pnpm` / `yarn` / `bun`，且限定在白名单内——该值会成为被拉起进程的 argv[0]，不接受任意字符串
+  - 安装直接透传 npm 自己的输出，权限错误等原文可见；失败时以 npm 的退出码退出，并提示改用用户可写的 prefix
+  - 更新成功后会扫描本机运行中的网关，**列出仍在跑旧版本的实例并提示重启**（包升级不同于配置热重载，旧进程会继续跑旧代码），但不会替你去停用户的进程
 
 ### v1.19.0
 
