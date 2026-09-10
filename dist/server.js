@@ -17,6 +17,7 @@ const version_js_1 = require("./version.js");
 const watcher_js_1 = require("./watcher.js");
 const logging_js_1 = require("./logging.js");
 const gateway_identity_js_1 = require("./gateway-identity.js");
+const model_suffix_js_1 = require("./model-suffix.js");
 function requiredAuthToken() {
     return (process.env.CCMR_REQUIRED_AUTH_TOKEN ?? '').trim();
 }
@@ -188,7 +189,9 @@ function createServer(configManager, options = {}) {
         const data = Object.entries(config.models)
             .filter(([id, model]) => !(model.provider_key && id === model.provider_key))
             .map(([id, model]) => ({
-            id,
+            // Claude Code opens its 1M window only for names ending in [1m];
+            // resolveModelName strips it again on the way back in.
+            id: (0, model_suffix_js_1.withContextSuffix)(id, model.context_window),
             object: 'model',
             display_name: model.display_name,
             provider: model.provider,

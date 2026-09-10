@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConfigManager, DEFAULT_CONFIG, generateConfigFile } from '../src/config.js';
+import { stripContextSuffix, withContextSuffix } from '../src/model-suffix.js';
 import type { ProviderConfig } from '../src/types.js';
 
 const tempFiles: string[] = [];
@@ -279,6 +280,43 @@ describe('GLM-5.3: new flagship default on both plan endpoints', () => {
     expect(manager.resolveModelName('glm-global')).toBe('glm-global-5.3');
     expect(manager.resolveModelName('zai')).toBe('glm-global-5.3');
     expect(manager.resolveModelName('z-ai')).toBe('glm-global-5.3');
+  });
+});
+
+describe('1M context suffix: Claude Code interop', () => {
+  const manager = new ConfigManager(null);
+
+  it('resolves a [1m]-suffixed model name to the underlying model', () => {
+    // Claude Code turns on its 1M window only when the model name carries
+    // the [1m] suffix, and strips it before calling the API. Anything that
+    // does not strip it (curl, other clients, a stale session) must still
+    // route, so the gateway accepts the suffixed form.
+    expect(manager.resolveModelName('deepseek-flash[1m]')).toBe('deepseek-flash');
+    expect(manager.getModel('deepseek-flash[1m]')?.model_id).toBe('deepseek-flash');
+  });
+
+  it('strips the suffix before alias resolution, not after', () => {
+    expect(manager.resolveModelName('ds-4.1[1m]')).toBe('deepseek-flash');
+    expect(manager.resolveModelName('glm[1m]')).toBe('glm-plan-5.3');
+  });
+
+  it('adds the suffix only at or above a 1M window', () => {
+    // Vendors report 1M as either 1000000 or 1048576; both must qualify,
+    // and anything smaller must not (a false [1m] would overrun the window).
+    expect(withContextSuffix('m', 1_000_000)).toBe('m[1m]');
+    expect(withContextSuffix('m', 1_048_576)).toBe('m[1m]');
+    expect(withContextSuffix('m', 999_999)).toBe('m');
+    expect(withContextSuffix('m', 262_144)).toBe('m');
+    expect(withContextSuffix('m', undefined)).toBe('m');
+    // Idempotent: launching an already-suffixed name must not double it.
+    expect(withContextSuffix('m[1m]', 1_048_576)).toBe('m[1m]');
+    expect(stripContextSuffix(withContextSuffix('m', 1_048_576))).toBe('m');
+  });
+
+  it('leaves names that merely contain 1m alone', () => {
+    // kimi-plan-k3-1m is a real model key ending in -1m; only the bracketed
+    // suffix is a Claude Code marker.
+    expect(manager.resolveModelName('kimi-plan-k3-1m')).toBe('kimi-plan-k3-1m');
   });
 });
 

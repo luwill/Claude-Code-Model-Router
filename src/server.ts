@@ -13,6 +13,7 @@ import { VERSION } from './version.js';
 import { ConfigWatcher } from './watcher.js';
 import { isInfoLoggingEnabled } from './logging.js';
 import { newGatewayInstanceId, writeGatewayIdentity } from './gateway-identity.js';
+import { withContextSuffix } from './model-suffix.js';
 
 function requiredAuthToken(): string {
   return (process.env.CCMR_REQUIRED_AUTH_TOKEN ?? '').trim();
@@ -218,7 +219,9 @@ export function createServer(configManager: ConfigManager, options: CreateServer
     const data = Object.entries(config.models)
       .filter(([id, model]) => !(model.provider_key && id === model.provider_key))
       .map(([id, model]) => ({
-        id,
+        // Claude Code opens its 1M window only for names ending in [1m];
+        // resolveModelName strips it again on the way back in.
+        id: withContextSuffix(id, model.context_window),
         object: 'model',
         display_name: model.display_name,
         provider: model.provider,

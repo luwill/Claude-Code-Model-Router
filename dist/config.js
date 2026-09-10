@@ -15,6 +15,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const js_yaml_1 = __importDefault(require("js-yaml"));
 const dotenv_1 = require("dotenv");
 const paths_js_1 = require("./paths.js");
+const model_suffix_js_1 = require("./model-suffix.js");
 exports.DEFAULT_CONFIG = {
     default_model: 'deepseek-flash',
     providers: {
@@ -1022,7 +1023,7 @@ class ConfigManager {
         return this.config.models[resolved];
     }
     resolveModelName(name) {
-        return this.resolveAlias(name, this.config.aliases);
+        return this.resolveAlias((0, model_suffix_js_1.stripContextSuffix)(name), this.config.aliases);
     }
     getApiKey(modelName) {
         const resolved = this.resolveModelName(modelName);

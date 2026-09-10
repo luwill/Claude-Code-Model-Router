@@ -172,8 +172,8 @@ ccmr claude --print --output-format json "你的问题"
 - `CLAUDE_CONFIG_DIR=~/.claude-gateway`
 - `ANTHROPIC_BASE_URL=http://127.0.0.1:<gateway-port>`
 - `ANTHROPIC_AUTH_TOKEN=ccmr-local-gateway`
-- `ANTHROPIC_MODEL` 和 Claude 默认模型变量会指向当前 `default_model`
-- `CLAUDE_CODE_AUTO_COMPACT_WINDOW` 会按启动模型的 `context_window` 自动注入（如 Seed/Kimi 256K、DeepSeek 1M），避免 Claude Code 把第三方模型默认裁剪到 ~200k。若你已自行设置该变量，则尊重你的值不覆盖。注意它是会话级全局：运行时用 `/model` 切到不同上下文窗口的模型时，请重启或用 `ccmr claude --model <模型>` 重新启动以匹配
+- `ANTHROPIC_MODEL` 和 Claude 默认模型变量会指向当前 `default_model`；若该模型的 `context_window` ≥ 1M，会自动带上 `[1m]` 后缀（如 `deepseek-flash[1m]`）。Claude Code 只有在模型名带这个后缀时才会真正开启 1M 上下文，并且会在请求发出前把后缀剥掉，因此不影响上游模型 ID
+- `CLAUDE_CODE_AUTO_COMPACT_WINDOW` 会按启动模型的 `context_window` 自动注入（如 Seed/Kimi 256K、DeepSeek 1M），避免 Claude Code 把第三方模型默认裁剪到 ~200k。若你已自行设置该变量，则尊重你的值不覆盖。注意它是会话级全局：运行时用 `/model` 切到**不同上下文窗口**的模型时，压缩阈值不会跟着变，需要重启或用 `ccmr claude --model <模型>` 重新启动以匹配（1M 模型之间互相切换不受影响）
 
 这些变量只作用于 `ccmr claude` 启动的 Claude Code 子进程，不会修改你的官方 Claude Code 配置，也不会影响直接运行 `claude` 的官方订阅模式。
 
@@ -542,6 +542,14 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.19.0
+
+- **1M 模型自动带 `[1m]` 后缀**：Claude Code 在自定义 base_url 后面默认按 ~200k 处理第三方模型，只有模型名以 `[1m]` 结尾时才会开启百万上下文——此前需要每次手动 `/model deepseek-flash[1m]`。现在两个出口都会自动补后缀：
+  - `ccmr claude` 注入的 `ANTHROPIC_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL` / `..._OPUS_MODEL` / `..._HAIKU_MODEL`（解决"刚进界面就是 200K"）
+  - `GET /v1/models` 返回的模型 id（解决"用 `/model` 切换后又变回 200K"）
+- **判定规则**：`context_window ≥ 1000000` 才加后缀，当前 42 个模型中 27 个符合（DeepSeek、Kimi K3、Qwen3.8、GLM-5.x、MiniMax M3、MiMo 等）；256K 及以下的模型（Seed、Kimi K2.x、Step）保持裸名——给小窗口模型挂 `[1m]` 会让 Claude Code 超发上下文
+- **后缀只对客户端有意义**：网关在解析模型名时会先剥掉 `[1m]` 再查别名，上游收到的始终是裸模型 ID（Kimi 曾因 `k3[1m]` 报 401）。因此 `deepseek-flash` 和 `deepseek-flash[1m]` 都能正常路由，老配置、老脚本不受影响
 
 ### v1.18.0
 

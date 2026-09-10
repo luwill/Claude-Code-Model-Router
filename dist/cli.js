@@ -19,6 +19,7 @@ const launcher_js_1 = require("./launcher.js");
 const paths_js_1 = require("./paths.js");
 const server_js_1 = require("./server.js");
 const version_js_1 = require("./version.js");
+const model_suffix_js_1 = require("./model-suffix.js");
 commander_1.program
     .name('ccmr')
     .description('Claude Code Model Router - A lightweight API gateway for multi-model switching')
@@ -511,6 +512,10 @@ commander_1.program
     const autoCompactWindow = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW === undefined && launchModel?.context_window
         ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(launchModel.context_window) }
         : {};
+    // Claude Code assumes ~200k behind a custom base URL and only opens the
+    // full window for a name ending in [1m]. Without this the user has to
+    // retype the suffix after every /model switch and on every launch.
+    const launchModelName = (0, model_suffix_js_1.withContextSuffix)(defaultModel, launchModel?.context_window);
     // Set up environment for gateway
     const env = {
         ...process.env,
@@ -518,10 +523,10 @@ commander_1.program
         CLAUDE_CONFIG_DIR: node_path_1.default.join(homeDir, '.claude-gateway'),
         ANTHROPIC_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
         ANTHROPIC_AUTH_TOKEN: clientAuthToken() || 'ccmr-local-gateway',
-        ANTHROPIC_MODEL: defaultModel,
-        ANTHROPIC_DEFAULT_SONNET_MODEL: defaultModel,
-        ANTHROPIC_DEFAULT_OPUS_MODEL: defaultModel,
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: defaultModel,
+        ANTHROPIC_MODEL: launchModelName,
+        ANTHROPIC_DEFAULT_SONNET_MODEL: launchModelName,
+        ANTHROPIC_DEFAULT_OPUS_MODEL: launchModelName,
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: launchModelName,
     };
     // Build Claude Code arguments
     const claudeArgs = [];
@@ -590,7 +595,7 @@ commander_1.program
         console.log('Starting Claude Code (Third-party Models)');
         console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
         console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
-        console.log('Model: ' + defaultModel);
+        console.log('Model: ' + launchModelName);
         if (env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) {
             console.log('Auto-compact window: ' + env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + ' tokens');
         }

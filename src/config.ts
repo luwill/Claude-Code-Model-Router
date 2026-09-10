@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import yaml from 'js-yaml';
 import { parse as dotenvParse } from 'dotenv';
 import { ccmrHome } from './paths.js';
+import { stripContextSuffix } from './model-suffix.js';
 import type { ModelConfig, ProviderConfig, RouterConfig } from './types.js';
 
 export const DEFAULT_CONFIG: RouterConfig = {
@@ -1060,7 +1061,7 @@ export class ConfigManager {
   }
 
   resolveModelName(name: string): string {
-    return this.resolveAlias(name, this.config.aliases);
+    return this.resolveAlias(stripContextSuffix(name), this.config.aliases);
   }
 
   getApiKey(modelName: string): string | undefined {

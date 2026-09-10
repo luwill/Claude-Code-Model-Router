@@ -21,6 +21,7 @@ import {
 import { ccmrHome } from './paths.js';
 import { startServer } from './server.js';
 import { VERSION } from './version.js';
+import { withContextSuffix } from './model-suffix.js';
 
 program
   .name('ccmr')
@@ -601,6 +602,11 @@ program
         ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(launchModel.context_window) }
         : {};
 
+    // Claude Code assumes ~200k behind a custom base URL and only opens the
+    // full window for a name ending in [1m]. Without this the user has to
+    // retype the suffix after every /model switch and on every launch.
+    const launchModelName = withContextSuffix(defaultModel, launchModel?.context_window);
+
     // Set up environment for gateway
     const env = {
       ...process.env,
@@ -608,10 +614,10 @@ program
       CLAUDE_CONFIG_DIR: path.join(homeDir, '.claude-gateway'),
       ANTHROPIC_BASE_URL: `http://127.0.0.1:${gatewayPort}`,
       ANTHROPIC_AUTH_TOKEN: clientAuthToken() || 'ccmr-local-gateway',
-      ANTHROPIC_MODEL: defaultModel,
-      ANTHROPIC_DEFAULT_SONNET_MODEL: defaultModel,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: defaultModel,
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: defaultModel,
+      ANTHROPIC_MODEL: launchModelName,
+      ANTHROPIC_DEFAULT_SONNET_MODEL: launchModelName,
+      ANTHROPIC_DEFAULT_OPUS_MODEL: launchModelName,
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: launchModelName,
     };
 
     // Build Claude Code arguments
@@ -672,7 +678,7 @@ program
       console.log('Starting Claude Code (Third-party Models)');
       console.log('Configuration: ' + env.CLAUDE_CONFIG_DIR);
       console.log('Gateway: ' + env.ANTHROPIC_BASE_URL);
-      console.log('Model: ' + defaultModel);
+      console.log('Model: ' + launchModelName);
       if (env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) {
         console.log('Auto-compact window: ' + env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + ' tokens');
       }

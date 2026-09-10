@@ -68,6 +68,11 @@ providers:
         model_id: upstream-model-001
         max_tokens: 4096
         context_window: 128000
+      big:
+        display_name: "Test Model Big"
+        model_id: upstream-model-big
+        max_tokens: 8192
+        context_window: 1000000
 `;
 }
 
@@ -159,6 +164,45 @@ describe('GET /health and /v1/models', () => {
     expect(testModel).toBeDefined();
     expect(testModel?.model_id).toBe('upstream-model-001');
     expect(testModel?.available).toBe(true);
+  });
+
+  it('advertises >=1M models with the [1m] suffix Claude Code needs', async () => {
+    // Claude Code assumes ~200k behind a custom base URL and only opens the
+    // full window when the model name ends in [1m]; without this the user has
+    // to type the suffix by hand after every /model switch.
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+
+    const models = (await (await fetch(`${gateway.url}/v1/models`)).json()) as {
+      data: Array<{ id: string; model_id: string; context_window?: number }>;
+    };
+    const ids = models.data.map((m) => m.id);
+    expect(ids).toContain('testmodel-big[1m]');
+    // The 128k model must stay bare -- claiming 1M would overrun its window.
+    expect(ids).toContain('testmodel-v1');
+    expect(ids).not.toContain('testmodel-v1[1m]');
+    // The upstream id is untouched; the suffix is a client-side marker only.
+    expect(models.data.find((m) => m.id === 'testmodel-big[1m]')?.model_id).toBe(
+      'upstream-model-big'
+    );
+  });
+
+  it('routes a suffixed model name to the bare upstream id', async () => {
+    const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+    const gateway = await startGateway(configFile);
+
+    const res = await fetch(`${gateway.url}/v1/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'testmodel-big[1m]',
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(captured.body.model).toBe('upstream-model-big');
   });
 
   // Without these, diagnosing "which config is this gateway actually using?"
