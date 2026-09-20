@@ -283,6 +283,97 @@ describe('GLM-5.3: new flagship default on both plan endpoints', () => {
   });
 });
 
+describe('Step 5 Preview: StepFun flagship default on both Step endpoints', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('adds step-5-preview as the default pay-as-you-go variant', () => {
+    // StepFun shipped Step 5 Preview on 2026-09-18 (600B-A27B, 1M context,
+    // text + image in / text out). Live probe on api.stepfun.com:
+    // /v1/messages with model step-5-preview answers 200 and echoes the id.
+    const model = config.models['step-5-preview'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('step-5-preview');
+    expect(model.context_window).toBe(1048576);
+    expect(model.base_url).toBe('https://api.stepfun.com');
+    expect(model.api_key_env).toBe('STEP_API_KEY');
+    expect(manager.resolveModelName('step')).toBe('step-5-preview');
+    expect(manager.resolveModelName('stepfun')).toBe('step-5-preview');
+    expect(manager.resolveModelName('step-5')).toBe('step-5-preview');
+  });
+
+  it('adds step-5-preview on the Step Plan subscription endpoint', () => {
+    // The Step Plan console lists step-5-preview alongside step-3.7-flash;
+    // /step_plan/v1/messages answers 200 for it (and 404 for the retired
+    // preview codename).
+    const model = config.models['step-plan-5-preview'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('step-5-preview');
+    expect(model.context_window).toBe(1048576);
+    expect(model.base_url).toBe('https://api.stepfun.com/step_plan');
+    expect(model.api_key_env).toBe('STEP_PLAN_API_KEY');
+    expect(manager.resolveModelName('step-plan')).toBe('step-plan-5-preview');
+    expect(manager.resolveModelName('stepplan')).toBe('step-plan-5-preview');
+  });
+
+  it('retires the Step 3.7 Flash model keys on both endpoints', () => {
+    // Step 5 Preview is the only StepFun model ccmr ships; the Flash keys
+    // and their aliases go with it, so `ccmr models` stops listing a model
+    // the router no longer intends to route.
+    expect(config.models['step-3.7-flash']).toBeUndefined();
+    expect(config.models['step-plan-3.7-flash']).toBeUndefined();
+    for (const alias of ['step-3.7', 'step-3.7-flash', 'step-plan-3.7', 'step-plan-3.7-flash']) {
+      expect(DEFAULT_CONFIG.aliases[alias], `${alias} should be gone`).toBeUndefined();
+    }
+  });
+
+  it('does not alias the retired Flash names onto Step 5 Preview', () => {
+    // A compat alias here would be a silent 5x price change per token
+    // (pay-as-you-go Flash $0.2/$1.15 vs Step 5 Preview $1.00/$2.70), and
+    // pre-1.21 user configs still carry `step -> step-3.7-flash`, so a
+    // reverse alias would also close an alias cycle (see the DeepSeek V4
+    // Flash retirement).
+    expect(manager.resolveModelName('step-3.7-flash')).toBe('step-3.7-flash');
+    expect(manager.getModel('step-3.7-flash')).toBeUndefined();
+  });
+
+  it('still loads a pre-1.21 user config that pins the retired Flash keys', () => {
+    // User files merge over DEFAULT_CONFIG, so an older generated config
+    // keeps its own step provider block and aliases and must stay loadable.
+    const file = writeTempConfig(`
+providers:
+  step:
+    display_name: StepFun
+    provider: stepfun
+    base_url: https://api.stepfun.com
+    api_key_env: STEP_API_KEY
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: 3.7-flash
+    variants:
+      3.7-flash:
+        display_name: "Step 3.7 Flash"
+        model_id: step-3.7-flash
+        max_tokens: 393216
+        context_window: 262144
+aliases:
+  step: step-3.7-flash
+  step-3.7-flash: step-3.7-flash
+`);
+    const legacy = new ConfigManager(file);
+    expect(legacy.resolveModelName('step')).toBe('step-3.7-flash');
+    expect(legacy.getModel('step-3.7-flash')?.model_id).toBe('step-3.7-flash');
+  });
+
+  it('advertises the 1M window to Claude Code', () => {
+    expect(withContextSuffix('step-5-preview', config.models['step-5-preview'].context_window)).toBe(
+      'step-5-preview[1m]'
+    );
+    expect(manager.resolveModelName('step-5-preview[1m]')).toBe('step-5-preview');
+    expect(manager.resolveModelName('step[1m]')).toBe('step-5-preview');
+  });
+});
+
 describe('1M context suffix: Claude Code interop', () => {
   const manager = new ConfigManager(null);
 

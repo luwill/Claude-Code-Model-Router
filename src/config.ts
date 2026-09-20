@@ -370,13 +370,18 @@ export const DEFAULT_CONFIG: RouterConfig = {
       auth_type: 'bearer',
       supports_streaming: true,
       supports_tools: true,
-      default_variant: '3.7-flash',
+      default_variant: '5-preview',
       variants: {
-        '3.7-flash': {
-          display_name: 'Step 3.7 Flash',
-          model_id: 'step-3.7-flash',
+        '5-preview': {
+          display_name: 'Step 5 Preview',
+          model_id: 'step-5-preview',
+          // 600B total / 27B active, text + image in, text out. Context
+          // window probed live: 1,034,012 tokens accepted, ~1,059,900
+          // rejected, so the ceiling is the 1M window the vendor states.
+          // max_tokens is the value the Step family has always carried:
+          // upstream accepts any value, so it cannot be probed.
           max_tokens: 393216,
-          context_window: 262144,
+          context_window: 1048576,
         },
       },
     },
@@ -389,13 +394,13 @@ export const DEFAULT_CONFIG: RouterConfig = {
       auth_type: 'bearer',
       supports_streaming: true,
       supports_tools: true,
-      default_variant: '3.7-flash',
+      default_variant: '5-preview',
       variants: {
-        '3.7-flash': {
-          display_name: 'Step 3.7 Flash (Step Plan)',
-          model_id: 'step-3.7-flash',
+        '5-preview': {
+          display_name: 'Step 5 Preview (Step Plan)',
+          model_id: 'step-5-preview',
           max_tokens: 393216,
-          context_window: 262144,
+          context_window: 1048576,
         },
       },
     },
@@ -643,14 +648,15 @@ export const DEFAULT_CONFIG: RouterConfig = {
     'zai-flash': 'glm-global-5.3-flash',
     zai: 'glm-global-5.3',
     'z-ai': 'glm-global-5.3',
-    step: 'step-3.7-flash',
-    'step-3.7': 'step-3.7-flash',
-    'step-3.7-flash': 'step-3.7-flash',
-    stepfun: 'step-3.7-flash',
-    'step-plan': 'step-plan-3.7-flash',
-    'step-plan-3.7': 'step-plan-3.7-flash',
-    'step-plan-3.7-flash': 'step-plan-3.7-flash',
-    stepplan: 'step-plan-3.7-flash',
+    step: 'step-5-preview',
+    'step-5': 'step-5-preview',
+    step5: 'step-5-preview',
+    'step-5-preview': 'step-5-preview',
+    stepfun: 'step-5-preview',
+    'step-plan': 'step-plan-5-preview',
+    'step-plan-5': 'step-plan-5-preview',
+    'step-plan-5-preview': 'step-plan-5-preview',
+    stepplan: 'step-plan-5-preview',
     mimo: 'mimo-v2.5-pro',
     'mimo-pro': 'mimo-v2.5-pro',
     'mimo-token': 'mimo-v2.5-pro',
@@ -1508,13 +1514,13 @@ providers:
     api_key_env: STEP_API_KEY
     auth_header: Authorization
     auth_type: bearer
-    default_variant: 3.7-flash
+    default_variant: 5-preview
     variants:
-      3.7-flash:
-        display_name: "Step 3.7 Flash"
-        model_id: step-3.7-flash
+      5-preview:
+        display_name: "Step 5 Preview"
+        model_id: step-5-preview
         max_tokens: 393216
-        context_window: 262144
+        context_window: 1048576
 
   step-plan:
     display_name: StepFun Step Plan
@@ -1523,13 +1529,13 @@ providers:
     api_key_env: STEP_PLAN_API_KEY
     auth_header: Authorization
     auth_type: bearer
-    default_variant: 3.7-flash
+    default_variant: 5-preview
     variants:
-      3.7-flash:
-        display_name: "Step 3.7 Flash (Step Plan)"
-        model_id: step-3.7-flash
+      5-preview:
+        display_name: "Step 5 Preview (Step Plan)"
+        model_id: step-5-preview
         max_tokens: 393216
-        context_window: 262144
+        context_window: 1048576
 
   mimo:
     display_name: MiMo Token Plan SGP
@@ -1741,14 +1747,15 @@ aliases:
   zai-flash: glm-global-5.3-flash
   zai: glm-global-5.3
   z-ai: glm-global-5.3
-  step: step-3.7-flash
-  step-3.7: step-3.7-flash
-  step-3.7-flash: step-3.7-flash
-  stepfun: step-3.7-flash
-  step-plan: step-plan-3.7-flash
-  step-plan-3.7: step-plan-3.7-flash
-  step-plan-3.7-flash: step-plan-3.7-flash
-  stepplan: step-plan-3.7-flash
+  step: step-5-preview
+  step-5: step-5-preview
+  step5: step-5-preview
+  step-5-preview: step-5-preview
+  stepfun: step-5-preview
+  step-plan: step-plan-5-preview
+  step-plan-5: step-plan-5-preview
+  step-plan-5-preview: step-plan-5-preview
+  stepplan: step-plan-5-preview
   mimo: mimo-v2.5-pro
   mimo-pro: mimo-v2.5-pro
   mimo-token: mimo-v2.5-pro

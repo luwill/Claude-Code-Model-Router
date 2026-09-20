@@ -214,8 +214,8 @@ ccmr claude --print --output-format json "你的问题"
 | `glm-global-5.3` | `glm-global`, `zai`, `z-ai` | GLM-5.3 | Z.ai（国际） |
 | `glm-global-5.2` | - | GLM-5.2 | Z.ai（国际） |
 | `glm-global-5.3-flash` | `glm-global-flash`, `zai-flash` | GLM-5.3-Flash（原生多模态） | Z.ai（国际） |
-| `step-3.7-flash` | `step`, `step-3.7`, `stepfun` | Step 3.7 Flash | 阶跃星辰(按量付费) |
-| `step-plan-3.7-flash` | `step-plan`, `step-plan-3.7`, `stepplan` | Step 3.7 Flash (Step Plan) | 阶跃星辰(订阅) |
+| `step-5-preview` | `step`, `step-5`, `step5`, `stepfun` | Step 5 Preview（1M 上下文，支持图片输入） | 阶跃星辰(按量付费) |
+| `step-plan-5-preview` | `step-plan`, `step-plan-5`, `stepplan` | Step 5 Preview (Step Plan) | 阶跃星辰(订阅) |
 | `mimo-v2.5-pro` | `mimo`, `mimo-pro`, `mimo-token-sgp`, `xiaomi` | MiMo V2.5 Pro | MiMo Token Plan SGP |
 | `mimo-v2.5` | `mimo-v2` | MiMo V2.5 | MiMo Token Plan SGP |
 | `mimo-token-cn-v2.5-pro` | `mimo-token-cn`, `mimo-cn` | MiMo V2.5 Pro | MiMo Token Plan CN |
@@ -428,8 +428,8 @@ npx claude-code-model-router claude
 /model glm-flash  # 切换到 GLM-5.3-Flash（智谱 Coding Plan 订阅，原生多模态）
 /model seed       # 切换到 Doubao Seed 2.1 Pro（火山方舟 按量付费）
 /model seed-plan  # 切换到 Doubao Seed 2.1 Pro（火山方舟 Agent Plan 订阅）
-/model step       # 切换到 Step 3.7 Flash（按量付费）
-/model step-plan  # 切换到 Step 3.7 Flash（Step Plan 订阅）
+/model step       # 切换到 Step 5 Preview（按量付费）
+/model step-plan  # 切换到 Step 5 Preview（Step Plan 订阅）
 /model kimi       # 切换到 Kimi K2.6
 /model kimi-code  # 切换到 Kimi K2.7 Code（编程专用）
 /model kimi-highspeed # 切换到 Kimi K2.7 Code HighSpeed（约 6 倍速）
@@ -448,8 +448,8 @@ npx claude-code-model-router claude
 /model glm-global-5.3            # GLM-5.3（国际 Z.ai）
 /model glm-global-5.2            # GLM-5.2（国际 Z.ai）
 /model glm-global-5.3-flash      # GLM-5.3-Flash（国际 Z.ai；别名 glm-global-flash）
-/model step-3.7-flash            # Step 3.7 Flash（按量付费）
-/model step-plan-3.7-flash       # Step 3.7 Flash（Step Plan 订阅）
+/model step-5-preview            # Step 5 Preview（按量付费；别名 step、step-5）
+/model step-plan-5-preview       # Step 5 Preview（Step Plan 订阅；别名 step-plan）
 /model minimax-m3                # MiniMax M3
 /model minimax-global-m3         # MiniMax M3 Global
 /model kimi-k2.6                 # Kimi K2.6
@@ -547,6 +547,15 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.21.0
+
+- **新增 Step 5 Preview**：阶跃星辰 2026-09-18 发布的新旗舰，600B 总参数 / 27B 激活，1M 上下文，支持文本与图片输入
+  - 两个出口都加了：按量付费 `step-5-preview`（`https://api.stepfun.com`，`STEP_API_KEY`）和订阅版 `step-plan-5-preview`（`https://api.stepfun.com/step_plan`，`STEP_PLAN_API_KEY`），上游模型 ID 都是 `step-5-preview`
+  - **裸别名改指向新旗舰**：`step`、`stepfun` → `step-5-preview`，`step-plan`、`stepplan` → `step-plan-5-preview`
+  - **移除 Step 3.7 Flash 的两个模型键**（`step-3.7-flash`、`step-plan-3.7-flash`）及其别名，阶跃星辰这一侧只保留 Step 5 Preview。**不把旧名字反向别名到新模型**：按量付费下两者价差约 5 倍（$0.2/$1.15 对 $1.00/$2.70），静默改道等于替用户加钱；且 1.21.0 之前生成的配置里存在 `step -> step-3.7-flash`，加反向别名会形成别名环（参见 DeepSeek V4 Flash 下线那次）。老配置自带 provider 块，升级后照常可加载
+  - 上下文窗口实测：1,034,012 tokens 可接受，约 1,059,900 被拒，按 1M 登记，因此会自动带 `[1m]` 后缀；max_tokens 沿用 Step 3.7 Flash 的 393216，上游对该值来者不拒，无法探测
+  - 实测两个端点的 `/v1/messages` 都返回 200 并回显 `step-5-preview`
 
 ### v1.20.0
 
