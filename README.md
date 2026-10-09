@@ -18,6 +18,8 @@ npm install -g claude-code-model-router
 # 然后使用 ccmr 命令
 ccmr init      # 初始化配置（git 仓库内自动把 .env 加入 .gitignore）
                # 或 ccmr init --global 写入 ~/.ccmr 全目录共享
+ccmr setup     # 引导式配置：选择厂商 → 粘贴 Key → 立即验证 → 设默认模型
+               # （也可直接编辑 .env；--yes 支持非交互/CI 场景）
 ccmr doctor    # （可选）连通性体检，确认各模型可用
 
 # 启动 Claude Code（网关未运行时自动拉起，无需单独开终端）
@@ -34,7 +36,8 @@ ccmr use kimi
 # 1. 初始化配置文件（git 仓库内自动把 .env 加入 .gitignore）
 npx claude-code-model-router init
 
-# 2. 编辑 .env 文件，填入 API Keys
+# 2. 引导式填入 API Keys（或手工编辑 .env）
+npx claude-code-model-router setup
 
 # 3. （可选）连通性体检，确认各模型可用
 npx claude-code-model-router doctor
@@ -55,6 +58,10 @@ claude
 # 初始化配置文件（git 仓库内会自动把 .env 加入 .gitignore）
 npx claude-code-model-router init
 npx claude-code-model-router init --global  # 写入 ~/.ccmr，全目录共享一份配置
+
+# 引导式配置 API Keys（选厂商 → 粘贴 Key → 可选即时验证 → 设默认模型）
+npx claude-code-model-router setup
+npx claude-code-model-router setup --yes --validate  # 非交互：取环境变量里的 Key 并逐个验证
 
 # 启动网关（前台运行；models.yaml / .env 修改后自动热重载，无需重启）
 npx claude-code-model-router start
@@ -273,6 +280,8 @@ claude mcp add tavily -- npx -y tavily-mcp   # 也可用 Exa、Brave Search 等
 ## 配置
 
 ### 环境变量 (.env)
+
+推荐用 `ccmr setup` 引导式填写（隐藏输入、可选即时验证）；也可以直接编辑 `.env`：
 
 ```bash
 DEEPSEEK_API_KEY=sk-xxx    # https://platform.deepseek.com/
@@ -547,6 +556,15 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.22.0
+
+产品易用性专项（新用户旅程 UX 审计驱动），四个面向用户的改进：
+
+- **新增 `ccmr setup` 引导式配置**：一条命令完成「查看各厂商 Key 状态 → 选择厂商 → 粘贴 Key（终端隐藏输入）→ 可选逐厂商即时验证（与 doctor 同款微型请求）→ 写入 .env → 设默认模型」；`--yes` 非交互模式取环境变量中的 Key（CI/脚本友好），`--validate` 附带逐厂商验证。裸 `ccmr` 在「无配置且无任何 Key」时直接指引 setup（顺带修复了裸命令 Quick Start 提示从未显示过的死代码问题）
+- **Key 错误自愈**：缺 Key 的 401 现在指明「改哪个环境变量、去哪申请（新增 provider 级 `console_url` 字段）、用什么命令验证」；上游 401/403 保留厂商原始错误文本并追加同样的修复指引——审计发现真实环境里 Key 大面积失效时，用户此前只能看到一句不含任何行动线索的透传报错
+- **`ccmr models` 标记默认模型**（`*` 前缀 + 图例），`ccmr use` 的效果在列表里可见；**`ccmr stats` 自报数据来源网关端口**（多网关并存时不再张冠李戴）
+- **诚实口径回归锁定**：`listModels`、`/v1/models`、`/health` 三处「无 Key = 不可用」的行为补齐聚合测试固化；`console_url` 在 DEFAULT_CONFIG、YAML 模板与 `.env` 注释三处由一致性测试钉死，不会再漂移
 
 ### v1.21.0
 
