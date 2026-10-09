@@ -44,3 +44,9 @@ $ init Next steps (claim c runtime evidence):
 Next steps:
   1. Add your API keys: ccmr setup (guided), or edit .env by hand
   2. (Optional) Verify connectivity: npx claude-code-model-router doctor
+
+## R5 TTY hidden-input verification (adversary-stage4 blocking #1) — 2026-10-09 10:41:26, HEAD
+Reviewer's pty demo inherited the session's real provider keys, so provider 1 read as already-keyed and the typed 'secret' fell into the VISIBLE 'More providers?' readline — an environment artifact. Clean pty (all *_API_KEY purged, isolated HOME) against dist:
+- fixed close-recreate pattern: 'Paste DEEPSEEK_API_KEY' prompt appears, secret char-by-char echoes 0 times, flow completes to Next steps (script in this run's transcript; probe rerun twice)
+- original persistent-readline pattern: the hidden prompt failed to appear at all after the pick — the shared-readline hazard is real in kind
+Conclusion: blocking-fixed; demonstration was an artifact, mechanism concern was valid.
