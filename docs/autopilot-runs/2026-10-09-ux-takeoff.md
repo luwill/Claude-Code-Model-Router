@@ -50,12 +50,31 @@
 | D9 | 4 | setup 交互在非 TTY stdin 上允许管道驱动（EOF 优雅降级为空答案 + 明确报错），而非硬拒绝 | isTTY 硬门禁（杀死脚本化能力，且 --yes 已覆盖纯 CI） | 管道误用导致挂死或写出错误配置 |
 | D10 | 4 | 粘贴的 key 写 .env 后同步注入 process.env（值本就来自用户输入，进程随 CLI 退出） | 让 ConfigManager 重读 .env 文件（需新增公共 API，改动面大） | 注入造成环境泄漏报告 |
 | D11 | review | codex CLI 本会话不可用（所有模型报「ChatGPT 账号不支持」，账号级故障）：各 stage 对抗评审由**新上下文 Claude agent + CODEX-BRIEF** 替代，损失「异构模型」属性、保留对抗属性；已列 P5 待用户修复 codex | 跳过对抗评审（评审门是硬要求） | 用户要求所有评审必须异构模型 |
+| D12 | review | RF16 定性「blocking-fixed（演示伪影 + 机制属实）」：对抗评审的 pty 复现脚本继承了会话真实 key，secret 实际落入可见提问；但干净 pty 下原始模式连隐藏提示符都无法出现——修复保留且双向验证 | 直接按演示采信（证据不实）或整体驳回（机制真） | 干净环境下原始模式被证实完全无异常 |
+| D13 | review | pty 类验证必须先清洗 `*_API_KEY` 再 fork：本会话 shell 导出全部真实 key，任何继承型子进程都会让「无 key」场景失真——本轮两次评审翻案（R1 假 Ready、RF16 回显）都源于此 | 只信 transcript 不做环境清洗复测 | 无 |
 
 ### Review findings
 
 | id | round | reviewer | finding | status | note |
 |---|---|---|---|---|---|
-| （stage 2–4 双评审 + 全程终审结果见下方「评审记录补遗」，全部发现逐条定级：blocking-fixed / minor-fixed / minor-open / fixed-unreviewed / parked / rejected / dispute） | | | | | |
+| RF1 | 1/s2 | auditor-stage2 | 账本在 stage-2 head 未落盘（C1 open、证据未提交） | minor-fixed | 49bc187 + da2426f 补齐 |
+| RF2 | 1/s2 | auditor-stage2 | C1 缺 head 上的 after 探针归档 | minor-fixed | evidence/9-review-round1.md R1（42/42 NoKey + 默认标记） |
+| RF3 | 1/s2 | auditor-stage2 | 门脚本 tail=15 截断 models 被测面 | minor-mitigated | 起 10 号证据 GATE_TAIL_LINES=100（10/11/12 号全尾巴）；脚本本身归技能所有不改 |
+| RF4 | 1/s2 | auditor-stage2 | codex 失败日志被 `*.log` 忽略 | minor-fixed | 改名 `3-stage2-codex-outage.txt` 入库，D11 引用 |
+| RF5 | 1/s2 | adversary-stage2 | 简写默认模型（provider 裸键）标记半触发：图例在、无星行 | minor-fixed | `resolveListedDefaultName` + 3 测试 + R2 实证（1df1f5e） |
+| RF6 | 1/s3 | auditor+adversary-stage3（独立收敛） | 流式路径上游 401 裸文案——C2 主旅程（Claude Code 默认流式）未覆盖 | blocking-fixed | forwardStream 同构注释 + 流式测试 + R3 SSE 实证（1df1f5e） |
+| RF7 | 1/s3 | auditor-stage3 | live 证据盖基线脏树戳、未记命令 | minor-fixed | R3 以全元数据（命令/退出码/时间/提交）重录 |
+| RF8 | 1/s3 | auditor-stage3 | MiMo 三家无 console_url 且阈值宽松放行静默丢失 | minor-fixed | 无 URL 集合精确钉死为三兄弟（1df1f5e） |
+| RF9 | 1/s3 | auditor-stage3 | `.env.example` 未被测试钉住且缺 StepFun（既有漂移） | minor-fixed | 逐 env 覆盖率测试 + StepFun 段（1df1f5e） |
+| RF10 | 1/s3 | auditor-stage3 | 运行记录滞后 | minor-fixed | da2426f |
+| RF11 | 1/s4 | auditor+adversary-stage4（同源，后者定 blocking） | setup 写 key 不跑 `ensureEnvIgnored`——git 仓库内可暂存明文 key | blocking-fixed | f0fe5cc + R4 实证（[GUARD] + .gitignore） |
+| RF12 | 1/s4 | auditor-stage4 | `pickDefaultModel` chosen 参数生产死代码；默认提示自由文本静默采纳 | minor-fixed | f0fe5cc（交互传刚配置项、非交互传全部 keyed；未识别输入重问） |
+| RF13 | 1/s4 | auditor-stage4 | `.env` 手写 `NAME = value` 会被重复追加 | minor-fixed | f0fe5cc（空格容错正则 + 测试） |
+| RF14 | 1/s4 | auditor-stage4 | transcript 盖提交前脏树戳 | minor-acknowledged | 其核验与提交代码逐字一致；后续证据（R3/R4/R5）均带元数据 |
+| RF15 | 1/s4 | auditor-stage4 | init 文案改动无运行时证据 | minor-fixed | R4 归档输出 |
+| RF16 | 1/s4 | adversary-stage4 | TTY 下「隐藏输入」明文回显（blocking，演示实为环境伪影：pty 继承会话真实 key → secret 落入可见提问；但机制隐患属实——干净 pty 下原始模式隐藏提示符无法出现） | blocking-fixed | b3606d7：close-recreate 模式；干净 pty 实证提示出现 + 0 回显 + 全流程完成（R5） |
+| RF17 | 1/s4 | adversary-stage4 | 默认 action 使未知命令 exit 0 | minor-fixed | b3606d7：非空参数 → stderr + exit 1（实证） |
+| RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | （回传后填写） | pending | 其范围外的 f0fe5cc/b3606d7 修复依规则记 fixed-unreviewed，由落地终审覆盖 |
 
 `status` 为 `blocking-fixed`、`minor-fixed`、`minor-open`、`fixed-unreviewed`、`parked`、`rejected` 或 `dispute`。
 
