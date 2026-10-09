@@ -8,6 +8,8 @@ import { InvalidArgumentError, program } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
+import { renderModelsTable, renderUsageTable } from './cli-views.js';
+import type { UsageReport } from './cli-views.js';
 import { persistDefaultModel } from './default-model.js';
 import { checkModels } from './doctor.js';
 import { ensureEnvIgnored } from './env-guard.js';
@@ -129,38 +131,17 @@ program
     try {
       const configManager = new ConfigManager(options.config);
       const models = configManager.listModels();
+      const config = configManager.getConfig();
 
       console.log('');
       console.log('Available models:');
       console.log('');
-
-      const modelEntries = Object.entries(models);
-      const nameWidth = Math.max(28, ...modelEntries.map(([name]) => name.length + 2));
-      const displayWidth = Math.max(
-        26,
-        ...modelEntries.map(([, info]) => info.displayName.length + 2)
-      );
-      const providerWidth = Math.max(
-        24,
-        ...modelEntries.map(([, info]) => {
-          const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
-          return provider.length + 2;
-        })
-      );
-
-      for (const [name, info] of modelEntries) {
-        const status = info.available
-          ? '\x1b[32m[Ready]\x1b[0m'
-          : '\x1b[33m[No API Key]\x1b[0m';
-        const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
-        console.log(
-          `  ${name.padEnd(nameWidth)} ${info.displayName.padEnd(displayWidth)} ${provider.padEnd(providerWidth)} ${status}`
-        );
+      for (const line of renderModelsTable(models, config.default_model)) {
+        console.log(line);
       }
 
       console.log('');
       console.log('Aliases:');
-      const config = configManager.getConfig();
       for (const [alias, target] of Object.entries(config.aliases)) {
         console.log(`  ${alias} -> ${target}`);
       }
@@ -424,34 +405,11 @@ program
         console.error(`Gateway returned ${res.status} - is CCMR_AUTH_TOKEN required?`);
         process.exit(1);
       }
-      const usage = (await res.json()) as {
-        since: string;
-        totals: { requests: number; errors: number; input_tokens: number; output_tokens: number };
-        models: Record<
-          string,
-          { requests: number; errors: number; input_tokens: number; output_tokens: number }
-        >;
-      };
+      const usage = (await res.json()) as UsageReport;
 
       console.log('');
-      console.log(`Usage since ${usage.since}:`);
-      console.log('');
-      const entries = Object.entries(usage.models);
-      if (entries.length === 0) {
-        console.log('  (no requests yet)');
-      } else {
-        const nameWidth = Math.max(24, ...entries.map(([name]) => name.length + 2));
-        console.log(
-          `  ${'Model'.padEnd(nameWidth)} ${'Requests'.padStart(9)} ${'Errors'.padStart(7)} ${'Input'.padStart(12)} ${'Output'.padStart(12)}`
-        );
-        for (const [name, m] of entries) {
-          console.log(
-            `  ${name.padEnd(nameWidth)} ${String(m.requests).padStart(9)} ${String(m.errors).padStart(7)} ${String(m.input_tokens).padStart(12)} ${String(m.output_tokens).padStart(12)}`
-          );
-        }
-        console.log(
-          `  ${'TOTAL'.padEnd(nameWidth)} ${String(usage.totals.requests).padStart(9)} ${String(usage.totals.errors).padStart(7)} ${String(usage.totals.input_tokens).padStart(12)} ${String(usage.totals.output_tokens).padStart(12)}`
-        );
+      for (const line of renderUsageTable(usage, gatewayPort)) {
+        console.log(line);
       }
       console.log('');
     } catch {

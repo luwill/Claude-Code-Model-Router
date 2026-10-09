@@ -3,7 +3,7 @@
  * API key discovery, and DEFAULT_CONFIG <-> YAML template consistency.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -678,6 +678,51 @@ describe('ConfigManager: API key discovery', () => {
     process.env.KIMI_API_KEY = '';
     const manager = new ConfigManager(null);
     expect(manager.getApiKey('kimi-k2.6')).toBeUndefined();
+  });
+});
+
+describe('ConfigManager: aggregate key honesty (C1 regression lock)', () => {
+  // An explicit empty string in the parent env wins over any .env file
+  // value, so blanking every provider var simulates "no key configured"
+  // even on machines that carry real keys in the repo .env.
+  const providerKeyEnvs = (): string[] => {
+    const manager = new ConfigManager(null);
+    return [...new Set(Object.values(manager.getConfig().models).map((m) => m.api_key_env))];
+  };
+
+  let saved: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const name of providerKeyEnvs()) {
+      saved[name] = process.env[name];
+      process.env[name] = '';
+    }
+  });
+
+  afterEach(() => {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    saved = {};
+  });
+
+  it('reports every model as unavailable when no key is configured anywhere', () => {
+    const models = new ConfigManager(null).listModels();
+    expect(Object.keys(models).length).toBeGreaterThan(10);
+    for (const info of Object.values(models)) {
+      expect(info.available).toBe(false);
+    }
+  });
+
+  it('flips availability for exactly one provider when only its key is set', () => {
+    process.env.DEEPSEEK_API_KEY = 'unit-test-fake-key'; // never leaves the process
+    const models = new ConfigManager(null).listModels();
+    const ready = Object.entries(models)
+      .filter(([, info]) => info.available)
+      .map(([name]) => name)
+      .sort();
+    expect(ready).toEqual(['deepseek-flash', 'deepseek-v4-pro']);
   });
 });
 

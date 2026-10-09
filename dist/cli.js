@@ -11,6 +11,7 @@ const commander_1 = require("commander");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const config_js_1 = require("./config.js");
+const cli_views_js_1 = require("./cli-views.js");
 const default_model_js_1 = require("./default-model.js");
 const doctor_js_1 = require("./doctor.js");
 const env_guard_js_1 = require("./env-guard.js");
@@ -114,26 +115,15 @@ commander_1.program
     try {
         const configManager = new config_js_1.ConfigManager(options.config);
         const models = configManager.listModels();
+        const config = configManager.getConfig();
         console.log('');
         console.log('Available models:');
         console.log('');
-        const modelEntries = Object.entries(models);
-        const nameWidth = Math.max(28, ...modelEntries.map(([name]) => name.length + 2));
-        const displayWidth = Math.max(26, ...modelEntries.map(([, info]) => info.displayName.length + 2));
-        const providerWidth = Math.max(24, ...modelEntries.map(([, info]) => {
-            const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
-            return provider.length + 2;
-        }));
-        for (const [name, info] of modelEntries) {
-            const status = info.available
-                ? '\x1b[32m[Ready]\x1b[0m'
-                : '\x1b[33m[No API Key]\x1b[0m';
-            const provider = info.variant ? `${info.provider}/${info.variant}` : info.provider;
-            console.log(`  ${name.padEnd(nameWidth)} ${info.displayName.padEnd(displayWidth)} ${provider.padEnd(providerWidth)} ${status}`);
+        for (const line of (0, cli_views_js_1.renderModelsTable)(models, config.default_model)) {
+            console.log(line);
         }
         console.log('');
         console.log('Aliases:');
-        const config = configManager.getConfig();
         for (const [alias, target] of Object.entries(config.aliases)) {
             console.log(`  ${alias} -> ${target}`);
         }
@@ -367,19 +357,8 @@ commander_1.program
         }
         const usage = (await res.json());
         console.log('');
-        console.log(`Usage since ${usage.since}:`);
-        console.log('');
-        const entries = Object.entries(usage.models);
-        if (entries.length === 0) {
-            console.log('  (no requests yet)');
-        }
-        else {
-            const nameWidth = Math.max(24, ...entries.map(([name]) => name.length + 2));
-            console.log(`  ${'Model'.padEnd(nameWidth)} ${'Requests'.padStart(9)} ${'Errors'.padStart(7)} ${'Input'.padStart(12)} ${'Output'.padStart(12)}`);
-            for (const [name, m] of entries) {
-                console.log(`  ${name.padEnd(nameWidth)} ${String(m.requests).padStart(9)} ${String(m.errors).padStart(7)} ${String(m.input_tokens).padStart(12)} ${String(m.output_tokens).padStart(12)}`);
-            }
-            console.log(`  ${'TOTAL'.padEnd(nameWidth)} ${String(usage.totals.requests).padStart(9)} ${String(usage.totals.errors).padStart(7)} ${String(usage.totals.input_tokens).padStart(12)} ${String(usage.totals.output_tokens).padStart(12)}`);
+        for (const line of (0, cli_views_js_1.renderUsageTable)(usage, gatewayPort)) {
+            console.log(line);
         }
         console.log('');
     }

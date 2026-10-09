@@ -166,6 +166,41 @@ describe('GET /health and /v1/models', () => {
     expect(testModel?.available).toBe(true);
   });
 
+  // C1 regression lock: with no key configured, both availability surfaces
+  // must say "no key" for every model -- a fresh install must never look
+  // ready, or the user meets the truth as a 401 mid-session.
+  it('reports every model unavailable on /v1/models and /health when no key is set', async () => {
+    const savedKey = process.env.TEST_UPSTREAM_KEY;
+    delete process.env.TEST_UPSTREAM_KEY;
+    try {
+      const configFile = writeTempConfig(testConfig(`http://127.0.0.1:${upstreamPort}`));
+      const gateway = await startGateway(configFile);
+
+      const models = (await (await fetch(`${gateway.url}/v1/models`)).json()) as {
+        data: Array<{ id: string; available: boolean }>;
+      };
+      // Ambient real keys may legitimately cover DEFAULT_CONFIG models;
+      // the temp-config models are the controlled zero-key specimen.
+      const specimen = models.data.filter((m) => m.id.startsWith('testmodel'));
+      expect(specimen.length).toBeGreaterThanOrEqual(2);
+      for (const m of specimen) {
+        expect(m.available).toBe(false);
+      }
+
+      const health = (await (await fetch(`${gateway.url}/health`)).json()) as {
+        models: Record<string, string>;
+      };
+      for (const name of Object.keys(health.models)) {
+        if (name.startsWith('testmodel')) {
+          expect(health.models[name]).toBe('no_api_key');
+        }
+      }
+    } finally {
+      if (savedKey === undefined) delete process.env.TEST_UPSTREAM_KEY;
+      else process.env.TEST_UPSTREAM_KEY = savedKey;
+    }
+  });
+
   it('advertises >=1M models with the [1m] suffix Claude Code needs', async () => {
     // Claude Code assumes ~200k behind a custom base URL and only opens the
     // full window when the model name ends in [1m]; without this the user has
