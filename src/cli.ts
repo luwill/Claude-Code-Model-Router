@@ -10,6 +10,7 @@ import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
 import { renderModelsTable, renderUsageTable } from './cli-views.js';
 import type { UsageReport } from './cli-views.js';
+import { buildSetupPlan, runInteractiveSetup, runNonInteractiveSetup } from './setup.js';
 import { persistDefaultModel } from './default-model.js';
 import { checkModels } from './doctor.js';
 import { ensureEnvIgnored } from './env-guard.js';
@@ -110,7 +111,7 @@ program
 
     console.log('');
     console.log('Next steps:');
-    console.log('  1. Edit .env and add your API keys');
+    console.log('  1. Add your API keys: ccmr setup (guided), or edit .env by hand');
     console.log('  2. (Optional) Verify connectivity: npx claude-code-model-router doctor');
     console.log('  3. Start Claude Code (the gateway auto-starts if needed):');
     console.log('');
@@ -120,6 +121,57 @@ program
     console.log('     # For official subscription (default mode):');
     console.log('     claude');
     console.log('');
+  });
+
+// Setup command - guided key configuration (audit H1: init left the user
+// alone with 18 empty env vars; setup walks keys, verification, default)
+program
+  .command('setup')
+  .description('Guided configuration: add provider keys, verify them, set the default model')
+  .option('-c, --config <path>', 'Path to config file')
+  .option('-y, --yes', 'Non-interactive: use the keys already in the environment/.env')
+  .option('--validate', 'With --yes: verify each key with one tiny real request')
+  .action(async (options) => {
+    try {
+      const configManager = new ConfigManager(options.config);
+      const configPath = configManager.getConfigFilePath();
+      const envFile = configPath
+        ? path.join(path.dirname(configPath), '.env')
+        : path.join(process.cwd(), '.env');
+
+      if (options.yes) {
+        const result = await runNonInteractiveSetup({
+          configManager,
+          envFile,
+          validate: Boolean(options.validate),
+        });
+        if (!result.ok) {
+          console.error(`\x1b[31m[ERROR]\x1b[0m ${result.reason}`);
+          process.exit(1);
+        }
+        console.log('');
+        console.log(`\x1b[32m[OK]\x1b[0m ${result.written?.length ?? 0} key(s) persisted to ${envFile}`);
+        for (const v of result.validation ?? []) {
+          const mark = v.status === 'ok' ? '\x1b[32m[OK]\x1b[0m' : '\x1b[31m[FAIL]\x1b[0m';
+          console.log(`  ${mark} ${v.model}${v.detail ? ` ${v.detail}` : ''}`);
+        }
+        if (result.defaultModel) {
+          console.log(`Default model: ${result.defaultModel}`);
+        }
+        console.log('');
+      } else {
+        // Interactive on a pipe works too (answers can be piped); on EOF the
+        // prompts degrade to empty answers and the flow reports no keys.
+        const result = await runInteractiveSetup({ configManager, envFile });
+        if (!result.ok) {
+          console.error(`\x1b[31m[ERROR]\x1b[0m ${result.reason ?? 'setup incomplete'}`);
+          process.exit(1);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      process.exit(1);
+    }
   });
 
 // Models command
@@ -770,21 +822,38 @@ program
     console.log('');
   });
 
-// Parse arguments
-program.parse();
-
-// Show help if no command provided
-if (!process.argv.slice(2).length) {
+// Bare `ccmr` (no command): commander would print bare help and exit, so
+// the default action owns this case instead — first-run detection routes a
+// fresh install straight to `ccmr setup` (audit M5).
+program.action(() => {
   console.log('');
   console.log('Claude Code Model Router v' + VERSION);
   console.log('');
-  console.log('Quick Start:');
-  console.log('  1. npx claude-code-model-router init     # Create config files');
-  console.log('  2. Edit .env with your API keys');
-  console.log('  3. npx claude-code-model-router start    # Start gateway');
+  let firstRun = false;
+  try {
+    const probe = new ConfigManager();
+    firstRun =
+      probe.getConfigFilePath() === null &&
+      buildSetupPlan(probe).providers.every((p) => !p.hasKey);
+  } catch {
+    firstRun = false;
+  }
+  if (firstRun) {
+    console.log('No configuration found and no provider keys detected. Start here:');
+    console.log('');
+    console.log('  ccmr setup    # guided: choose providers, paste keys, verify, set default');
+    console.log('  ccmr init     # or just generate the config files to edit by hand');
+    console.log('');
+  } else {
+    console.log('Quick Start:');
+    console.log('  1. npx claude-code-model-router init     # Create config files');
+    console.log('  2. ccmr setup                             # Add API keys (guided)');
+    console.log('  3. npx claude-code-model-router start    # Start gateway');
+  }
   console.log('');
   console.log('Commands:');
   console.log('  init      Create configuration files (--global for ~/.ccmr)');
+  console.log('  setup     Guided key setup (or --yes for non-interactive)');
   console.log('  start     Start the gateway server (foreground)');
   console.log('  status    List running gateways (port, pid, config source)');
   console.log('  stop      Stop a running gateway');
@@ -797,4 +866,8 @@ if (!process.argv.slice(2).length) {
   console.log('');
   console.log('Use --help for more information.');
   console.log('');
-}
+  program.help();
+});
+
+// Parse arguments
+program.parse();
