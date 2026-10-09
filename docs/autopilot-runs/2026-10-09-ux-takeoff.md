@@ -27,7 +27,7 @@
 
 ## Stages
 
-1. [ ] UX 审计 — 三条旅程（零 key / 单 key / 坏 key）脚本化复现，产出 ux-audit.md（每个发现含命令与输出）；为 C4 提供输入。docs-only，跳过评审门。
+1. [x] UX 审计 — 三条旅程（零 key / 单 key / 坏 key）脚本化复现，产出 ux-audit.md（每个发现含命令与输出）；为 C4 提供输入。docs-only，跳过评审门。（evidence/1-ux-audit.md + 1-audit-journey-{a,b}.md；门 evidence/2-stage1-gate.md 6/6）
 2. [ ] 诚实状态 — owns C1：key 判定根因修复、models 与 /health 口径一致、默认模型标记；顺带钉死「空值 [Ready] / GLM_GLOBAL 例外」的机制。
 3. [ ] 自愈错误 — owns C2：router/server 错误路径按 C2 要求重写文案。
 4. [ ] 引导式 setup — owns C3：新 CLI 命令（或 init 交互升级，按审计结论定）+ 非交互模式 + E2E。
@@ -42,6 +42,9 @@
 | D1 | takeoff | 范围=新用户旅程+状态诚实性+错误自愈 | 推广运营/社区发文（无代码落点，外部发布是红线） | 用户本意含市场动作——起飞批中原样确认 |
 | D2 | takeoff | 版本一次性 bump 到 v1.22.0 于 Stage 5 | 每 stage 一个版本（changelog 噪音大） | 用户要求逐阶段发版 |
 | D3 | takeoff | C3 形态（新命令 vs init 升级）留给 Stage 1 审计后定 | 起飞时拍死形态 | 审计证据与所选形态矛盾 |
+| D4 | 1 | 起飞发现「零 key 假 [Ready]」判定为**已推翻**（R1）：受控环境 42/42 诚实；原观察源于会话 shell 导出真实 key + SIGPIPE 截断。C1 判据不变，转义为「回归锁定」——用测试钉死 listModels、/v1/models、/health 三处口径 | 维持「修 bug」叙事（无 bug 可修） | 受控环境复测出现任何假 Ready |
+| D5 | 1 | 机器门「完全干净」要求与用户未跟踪文件冲突：用 `.git/info/exclude` 本地屏蔽 `.antigravitycli/`、`.playwright-mcp/`、`CLAUDE.md`、`learnings/`（纯本地、不进版本库、可随时删；落地时向用户披露） | 改 .gitignore（会误导提交候选）/ git worktree（每 stage 重建 node_modules） | 用户依赖 `git status` 看到这些文件提醒提交 |
+| D6 | 1 | H2「key 健康持续可见性」本轮只做最小闭环：401 错误文本指路 doctor（并入 C2/Stage 3）；健康看板类大功能 ledger 记为后续 | 本轮做完整健康看板（规模失控） | 用户要求看板进本轮 |
 
 ### Review findings
 
