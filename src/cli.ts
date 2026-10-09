@@ -195,7 +195,12 @@ program
       const modelIdOf = Object.fromEntries(
         Object.entries(config.models).map(([name, model]) => [name, model.model_id])
       );
-      const listedDefault = resolveListedDefaultName(models, config.default_model, modelIdOf);
+      const listedDefault = resolveListedDefaultName(
+        models,
+        config.default_model,
+        config.models,
+        modelIdOf
+      );
 
       console.log('');
       console.log('Available models:');

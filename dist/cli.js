@@ -178,7 +178,7 @@ commander_1.program
         const models = configManager.listModels();
         const config = configManager.getConfig();
         const modelIdOf = Object.fromEntries(Object.entries(config.models).map(([name, model]) => [name, model.model_id]));
-        const listedDefault = (0, cli_views_js_1.resolveListedDefaultName)(models, config.default_model, modelIdOf);
+        const listedDefault = (0, cli_views_js_1.resolveListedDefaultName)(models, config.default_model, config.models, modelIdOf);
         console.log('');
         console.log('Available models:');
         console.log('');

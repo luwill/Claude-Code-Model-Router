@@ -75,13 +75,25 @@ export function renderModelsTable(
  * `ccmr use <provider-key>` persists the provider's bare key (e.g. 'acme'),
  * but listModels() skips those shorthand rows — without this resolution the
  * legend prints while no row gets the marker.
+ *
+ * The shorthand entry and its default variant share one ModelConfig object
+ * (normalizeConfig assigns the same reference), so identity comparison is
+ * exact; model_id strings are only a fallback because they are NOT unique
+ * across providers (step and step-plan both route to 'step-5-preview').
  */
 export function resolveListedDefaultName(
   listed: Record<string, ModelListEntry>,
   defaultModel: string,
+  configOf: Record<string, unknown>,
   modelIdOf: Record<string, string>
 ): string | undefined {
   if (listed[defaultModel]) return defaultModel;
+  const target = configOf[defaultModel];
+  if (target !== undefined) {
+    for (const name of Object.keys(listed)) {
+      if (configOf[name] === target) return name;
+    }
+  }
   const targetId = modelIdOf[defaultModel];
   if (!targetId) return undefined;
   for (const name of Object.keys(listed)) {

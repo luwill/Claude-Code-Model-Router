@@ -32,8 +32,13 @@ export declare function renderModelsTable(models: Record<string, ModelListEntry>
  * `ccmr use <provider-key>` persists the provider's bare key (e.g. 'acme'),
  * but listModels() skips those shorthand rows — without this resolution the
  * legend prints while no row gets the marker.
+ *
+ * The shorthand entry and its default variant share one ModelConfig object
+ * (normalizeConfig assigns the same reference), so identity comparison is
+ * exact; model_id strings are only a fallback because they are NOT unique
+ * across providers (step and step-plan both route to 'step-5-preview').
  */
-export declare function resolveListedDefaultName(listed: Record<string, ModelListEntry>, defaultModel: string, modelIdOf: Record<string, string>): string | undefined;
+export declare function resolveListedDefaultName(listed: Record<string, ModelListEntry>, defaultModel: string, configOf: Record<string, unknown>, modelIdOf: Record<string, string>): string | undefined;
 /**
  * Rows for the `ccmr stats` table. The header names the gateway port the
  * numbers were read from — with several gateways running, an unlabelled

@@ -113,19 +113,61 @@ describe('resolveListedDefaultName (review round-1 fix)', () => {
     'acme-pro': 'acme-pro-model',
     'acme-lite': 'acme-lite-model',
   };
+  // The shorthand and its default variant share ONE ModelConfig object.
+  const sharedConfig = { model_id: 'acme-pro-model' };
+  const configOf = {
+    acme: sharedConfig,
+    'acme-pro': sharedConfig,
+    'acme-lite': { model_id: 'acme-lite-model' },
+  };
 
   it('maps a bare provider-key default onto the default variant row', () => {
-    expect(resolveListedDefaultName(listed, 'acme', modelIdOf)).toBe('acme-pro');
+    expect(resolveListedDefaultName(listed, 'acme', configOf, modelIdOf)).toBe('acme-pro');
   });
 
   it('keeps a default that is already listed', () => {
-    expect(resolveListedDefaultName(listed, 'acme-lite', modelIdOf)).toBe('acme-lite');
+    expect(resolveListedDefaultName(listed, 'acme-lite', configOf, modelIdOf)).toBe('acme-lite');
   });
 
   it('renders a starred row for the shorthand default end-to-end', () => {
-    const resolved = resolveListedDefaultName(listed, 'acme', modelIdOf);
+    const resolved = resolveListedDefaultName(listed, 'acme', configOf, modelIdOf);
     const lines = renderModelsTable(listed, resolved).map(stripAnsi);
     expect(lines.find((l) => l.includes('acme-pro'))!.trimStart().startsWith('*')).toBe(true);
     expect(lines.find((l) => l.includes('default'))!.includes('acme-pro')).toBe(true);
+  });
+
+  // Round-2 finding: model_id is NOT unique across providers (step and
+  // step-plan both route to 'step-5-preview'); identity matching must win.
+  it('never crosses providers on a shared model_id (round-2 fix)', () => {
+    const paygVariant = { model_id: 'shared-model' };
+    const planVariant = { model_id: 'shared-model' };
+    const sharedListed = {
+      'acme-pro': { displayName: 'Acme Pro', provider: 'acme', variant: 'pro', available: true },
+      'acme-plan-pro': {
+        displayName: 'Acme Plan Pro',
+        provider: 'acme-plan',
+        variant: 'pro',
+        available: false,
+      },
+    };
+    const sharedConfigOf = {
+      acme: paygVariant,
+      'acme-pro': paygVariant,
+      'acme-plan': planVariant,
+      'acme-plan-pro': planVariant,
+    };
+    const sharedIdOf = {
+      acme: 'shared-model',
+      'acme-pro': 'shared-model',
+      'acme-plan': 'shared-model',
+      'acme-plan-pro': 'shared-model',
+    };
+    expect(resolveListedDefaultName(sharedListed, 'acme-plan', sharedConfigOf, sharedIdOf)).toBe(
+      'acme-plan-pro'
+    );
+  });
+
+  it('falls back to model_id matching when references are unavailable', () => {
+    expect(resolveListedDefaultName(listed, 'acme', {}, modelIdOf)).toBe('acme-pro');
   });
 });
