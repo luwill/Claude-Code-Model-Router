@@ -1,9 +1,9 @@
 # ccmr 易用性起飞 — 产品与工具体验专项
 
-- status: landed <!-- 2026-10-09，落地提交 464bb48；人类动作见 Parked P1–P7 -->
+- status: landed <!-- 2026-10-09，最终提交 53bfe08；人类动作见 Parked P1–P7 -->
 - workspace: autopilot/ux-takeoff
 - base: 6ab5444
-- landed-head: 464bb48（25 个提交领先 origin/main，未推送）
+- landed-head: 53bfe08（30 个提交领先 origin/main，未推送）
 - contract: docs/autopilot.md
 
 ## Goal
@@ -78,7 +78,9 @@
 | RF17 | 1/s4 | adversary-stage4 | 默认 action 使未知命令 exit 0 | minor-fixed | b3606d7：非空参数 → stderr + exit 1（实证） |
 | RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | **approve**：流式 401 对称性、标记修复、测试钉死、证据、门 5 项声称全部核实；隔离 worktree 独立复验 199/199 | proven | 报告原文入 evidence 口径；其范围发现见 RF19 |
 | RF19 | 2 | round2-review | `resolveListedDefaultName` 按 model_id 字符串匹配，而 model_id 跨 provider 不唯一（step/step-plan 同为 step-5-preview、四家 mimo 同享），自定义无别名 provider 对会把星标错行 | fixed-unreviewed | 0bd275c：改按 ModelConfig 对象引用匹配（normalizeConfig 同引用实测成立）、model_id 仅回退；含跨 provider 共享 model_id 的测试；按 round-2 规则不再开 round-3，由落地终审覆盖 |
-| RF20 | 落地 | final-audit + final-adversary（双双 429 阵亡） | 全程终审的两个新上下文评审因上游配额耗尽（glm-plan 5 小时上限，14:01 重置）未能执行 | degraded | 替代覆盖见 D14：各 src 变更均有 stage 级评审 + 修复轮评审；fixed-unreviewed 项（f0fe5cc/b3606d7/0bd275c/bbbcd34）经内联实测核查（引用匹配 live 探针、干净 pty 0 回显、secrets 扫描、dist 同步、remote 未推）；可选 P7 于配额恢复后补跑 |
+| RF20 | 落地 | final-audit + final-adversary（双双 429 阵亡） | 全程终审的两个新上下文评审因上游配额耗尽（glm-plan 5 小时上限，14:01 重置）未能执行 | degraded→healed(半) | final-adversary 稍后**自行恢复并交付**：verdict approve + 2 minor（见 RF21/RF22）；final-audit 仍未交付，其核查由内联四项替代（引用匹配 live 探针、secrets 扫描、dist 同步、remote 未推）；可选 P7 仍开放 |
+| RF21 | 落地 | final-adversary | `setup --yes --validate` 全部厂商验证失败仍 exit 0——宣传中的 CI 门禁不能红，给死 key 开绿灯 | minor-fixed | 1264a15：`allValidationsFailed` 进 outcome（部分失败不阻断），CLI 全败 exit 1；真实失效 key 实测 real exit=1；README 语义入档。fixed-unreviewed |
+| RF22 | 落地 | final-adversary | 隐藏输入处 Ctrl+D 被当字符追加进 key 落盘（且多行粘贴内部控制字符同样存活） | minor-fixed | 1264a15：Ctrl+D=干净中止（pty 实测：无 key 写入、无控制字符落盘）；回车时剥离全部控制字符。fixed-unreviewed |
 
 `status` 为 `blocking-fixed`、`minor-fixed`、`minor-open`、`fixed-unreviewed`、`parked`、`rejected` 或 `dispute`。
 
