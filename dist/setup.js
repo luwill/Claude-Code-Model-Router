@@ -71,8 +71,10 @@ function planEnvFileUpdates(content, updates) {
     let result = content;
     const skipped = [];
     for (const update of updates) {
-        const empty = new RegExp(`^${update.name}=\\s*$`, 'm');
-        const filled = new RegExp(`^${update.name}=\\S`, 'm');
+        // Tolerate hand-written spacing ("NAME = value") so such lines are
+        // filled in place instead of growing a duplicate entry.
+        const empty = new RegExp(`^${update.name}\\s*=\\s*$`, 'm');
+        const filled = new RegExp(`^${update.name}\\s*=\\s*\\S`, 'm');
         if (empty.test(result)) {
             result = result.replace(empty, `${update.name}=${update.value}`);
         }
@@ -144,7 +146,7 @@ async function runNonInteractiveSetup(options) {
             });
         }
     }
-    const defaultModel = pickDefaultModel(plan, []);
+    const defaultModel = pickDefaultModel(plan, keyed.map((p) => p.providerKey));
     if (defaultModel) {
         const configPath = options.configManager.getConfigFilePath();
         if (configPath) {
@@ -342,9 +344,21 @@ async function runInteractiveSetup(options) {
         }
     }
     let defaultModel = null;
-    const pick = pickDefaultModel(freshPlan, []);
+    const justConfigured = freshPlan.providers
+        .filter((p) => updates.some((u) => u.name === p.apiKeyEnv))
+        .map((p) => p.providerKey);
+    const pick = pickDefaultModel(freshPlan, justConfigured);
     if (pick) {
-        const answer = await prompter.ask(`Default model [${pick}] (Enter = accept, k = keep ${freshPlan.currentDefault}, n = skip): `);
+        let answer = '';
+        for (let attempt = 0; attempt < 3; attempt++) {
+            answer = await prompter.ask(`Default model [${pick}] (Enter = accept, k = keep ${freshPlan.currentDefault}, n = skip): `);
+            // Anything but '', 'k' or 'n' is a slip: re-ask instead of silently
+            // accepting the suggestion. EOF (piped stdin) yields '' on the first
+            // round, so the loop still terminates.
+            if (['', 'k', 'n'].includes(answer.toLowerCase()))
+                break;
+            console.log(`  Unrecognized answer '${answer}' - Enter, k or n.`);
+        }
         if (answer.toLowerCase() !== 'n') {
             defaultModel = answer.toLowerCase() === 'k' ? freshPlan.currentDefault : pick;
         }

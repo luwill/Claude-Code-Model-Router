@@ -138,6 +138,14 @@ program
       const envFile = configPath
         ? path.join(path.dirname(configPath), '.env')
         : path.join(process.cwd(), '.env');
+      // Keys are about to be written: same git-ignore guard init applies,
+      // or a fresh `ccmr setup` inside a git repo leaves a trackable .env.
+      const guard = ensureEnvIgnored(path.dirname(envFile));
+      if (guard === 'added') {
+        console.log('[GUARD] Added .env to .gitignore (API keys must never be committed)');
+      } else if (guard === 'no-git') {
+        console.log('[WARN] Not a git repository - keep .env out of any version control');
+      }
 
       if (options.yes) {
         const result = await runNonInteractiveSetup({

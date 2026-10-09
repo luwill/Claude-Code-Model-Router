@@ -31,3 +31,16 @@ data: {"type":"error","error":{"type":"api_error","message":"Upstream API error 
 $ curl -s -X POST :8098/v1/messages  {"model":"deepseek-flash",...}  # dead key, non-stream (E2 re-verified)
 {"type":"error","error":{"type":"api_error","message":"Upstream API error (deepseek): Authentication Fails, Your api key: ****xxxx is invalid (request_id: 5ceb2ff4-3f4d-4ace-a532-41d7e9530b68) — key rejected. Check DEEPSEEK_API_KEY in .env (get a key: https://platform.deepseek.com/), then verify with: ccmr doctor deepseek-flash"}}
 [HTTP 401]
+
+## R4 setup git-ignore guard + init Next-steps at HEAD (auditor-stage4 F1/F4)
+$ (fresh git repo, zero keys) ccmr setup --yes  →  expect guard message before error
+[GUARD] Added .env to .gitignore (API keys must never be committed)
+[31m[ERROR][0m No API keys configured. Run `ccmr setup` to add them interactively, or export at least one provider key (see `ccmr models`) and retry.
+exit=1
+$ grep -c '^\.env' .gitignore:
+1
+
+$ init Next steps (claim c runtime evidence):
+Next steps:
+  1. Add your API keys: ccmr setup (guided), or edit .env by hand
+  2. (Optional) Verify connectivity: npx claude-code-model-router doctor

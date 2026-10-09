@@ -106,6 +106,19 @@ describe('planEnvFileUpdates', () => {
       result.content.indexOf('STEP_API_KEY=sk-step')
     );
   });
+
+  it('tolerates hand-written spacing instead of growing duplicates (review fix)', () => {
+    const spaced = '# notes\nDEEPSEEK_API_KEY = \nKIMI_API_KEY = old\n';
+    const filled = planEnvFileUpdates(spaced, [
+      { name: 'DEEPSEEK_API_KEY', value: 'sk-new' },
+      { name: 'KIMI_API_KEY', value: 'sk-other' },
+    ]);
+    expect(filled.content).toContain('DEEPSEEK_API_KEY=sk-new');
+    expect(filled.content.match(/DEEPSEEK_API_KEY/g)).toHaveLength(1);
+    expect(filled.content).toContain('KIMI_API_KEY = old');
+    expect(filled.content.match(/KIMI_API_KEY/g)).toHaveLength(1);
+    expect(filled.skipped.map((s) => s.name)).toEqual(['KIMI_API_KEY']);
+  });
 });
 
 describe('applyEnvUpdates', () => {
