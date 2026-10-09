@@ -19,6 +19,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'deepseek',
       base_url: 'https://api.deepseek.com/anthropic',
       api_key_env: 'DEEPSEEK_API_KEY',
+      console_url: 'https://platform.deepseek.com/',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -52,6 +53,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'moonshot',
       base_url: 'https://api.moonshot.ai/anthropic',
       api_key_env: 'KIMI_API_KEY',
+      console_url: 'https://platform.kimi.ai/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -89,6 +91,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'moonshot-cn',
       base_url: 'https://api.moonshot.cn/anthropic',
       api_key_env: 'KIMI_CN_API_KEY',
+      console_url: 'https://platform.kimi.com/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -128,6 +131,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       // 与开放平台（moonshot.cn / .ai）互不相通；模型与上下文按会员档位限权。
       base_url: 'https://api.kimi.com/coding',
       api_key_env: 'KIMI_CODE_API_KEY',
+      console_url: 'https://www.kimi.com/code/console',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -170,6 +174,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'minimax-cn',
       base_url: 'https://api.minimaxi.com/anthropic',
       api_key_env: 'MINIMAX_API_KEY',
+      console_url: 'https://platform.minimaxi.com/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -189,6 +194,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'minimax-global',
       base_url: 'https://api.minimax.io/anthropic',
       api_key_env: 'MINIMAX_GLOBAL_API_KEY',
+      console_url: 'https://platform.minimax.io/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -208,6 +214,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'alibaba',
       base_url: 'https://dashscope.aliyuncs.com/apps/anthropic',
       api_key_env: 'QWEN_API_KEY',
+      console_url: 'https://dashscope.console.aliyun.com/',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -253,6 +260,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       // sk-sp- key 打过去会 403 invalid api-key）。Bearer 与 x-api-key 均实测可用。
       base_url: 'https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic',
       api_key_env: 'QWEN_PLAN_API_KEY',
+      console_url: 'https://platform.qianwenai.com/',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -296,6 +304,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       // OpenAI 协议（/api/paas/v4），无 Anthropic 通道，故没有按量 glm provider。
       base_url: 'https://open.bigmodel.cn/api/anthropic',
       api_key_env: 'GLM_PLAN_API_KEY',
+      console_url: 'https://bigmodel.cn/claude-code',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -335,6 +344,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'zhipu-global',
       base_url: 'https://api.z.ai/api/anthropic',
       api_key_env: 'GLM_GLOBAL_API_KEY',
+      console_url: 'https://z.ai/model-api',
       auth_header: 'x-api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -366,6 +376,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'stepfun',
       base_url: 'https://api.stepfun.com',
       api_key_env: 'STEP_API_KEY',
+      console_url: 'https://platform.stepfun.com/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -390,6 +401,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'stepfun-plan',
       base_url: 'https://api.stepfun.com/step_plan',
       api_key_env: 'STEP_PLAN_API_KEY',
+      console_url: 'https://platform.stepfun.com/',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -484,6 +496,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       provider: 'xiaomi-payg',
       base_url: 'https://api.xiaomimimo.com/anthropic',
       api_key_env: 'MIMO_PAYG_API_KEY',
+      console_url: 'https://platform.xiaomimimo.com/',
       auth_header: 'api-key',
       auth_type: 'api_key',
       supports_streaming: true,
@@ -510,6 +523,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       // 按量付费（方舟 API 调用）的 Anthropic 兼容接入点。订阅版 Agent Plan 用 /api/plan。
       base_url: 'https://ark.cn-beijing.volces.com/api/compatible',
       api_key_env: 'ARK_API_KEY',
+      console_url: 'https://console.volcengine.com/ark',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -536,6 +550,7 @@ export const DEFAULT_CONFIG: RouterConfig = {
       // 订阅版 Agent Plan 的 Anthropic 接入点，需专属 API Key（与按量付费 ARK_API_KEY 不同）。
       base_url: 'https://ark.cn-beijing.volces.com/api/plan',
       api_key_env: 'ARK_PLAN_API_KEY',
+      console_url: 'https://console.volcengine.com/ark',
       auth_header: 'Authorization',
       auth_type: 'bearer',
       supports_streaming: true,
@@ -864,6 +879,7 @@ export class ConfigManager {
       model_id: variant.model_id,
       base_url: provider.base_url,
       api_key_env: provider.api_key_env,
+      console_url: provider.console_url,
       auth_header: provider.auth_header,
       auth_type: provider.auth_type,
       supports_streaming: variant.supports_streaming ?? provider.supports_streaming,
@@ -944,6 +960,9 @@ export class ConfigManager {
       this.requireString(provider.base_url, `providers.${providerKey}.base_url`);
       this.requireHttpUrl(provider.base_url, `providers.${providerKey}.base_url`);
       this.requireString(provider.api_key_env, `providers.${providerKey}.api_key_env`);
+      if (provider.console_url !== undefined) {
+        this.requireHttpUrl(provider.console_url, `providers.${providerKey}.console_url`);
+      }
       if (provider.auth_type !== undefined && !['api_key', 'bearer'].includes(provider.auth_type)) {
         throw new Error(`providers.${providerKey}.auth_type must be api_key or bearer`);
       }
@@ -987,6 +1006,9 @@ export class ConfigManager {
       this.requireString(model.base_url, `models.${modelKey}.base_url`);
       this.requireHttpUrl(model.base_url, `models.${modelKey}.base_url`);
       this.requireString(model.api_key_env, `models.${modelKey}.api_key_env`);
+      if (model.console_url !== undefined) {
+        this.requireHttpUrl(model.console_url, `models.${modelKey}.console_url`);
+      }
       this.validatePositiveInteger(model.max_tokens, `models.${modelKey}.max_tokens`);
       this.validatePositiveInteger(model.context_window, `models.${modelKey}.context_window`);
       this.validateFallback(model.fallback, `models.${modelKey}.fallback`);
@@ -1242,6 +1264,7 @@ providers:
     provider: deepseek
     base_url: https://api.deepseek.com/anthropic
     api_key_env: DEEPSEEK_API_KEY
+    console_url: https://platform.deepseek.com/
     auth_header: x-api-key
     auth_type: api_key
     default_variant: v4-pro
@@ -1268,6 +1291,7 @@ providers:
     provider: moonshot
     base_url: https://api.moonshot.ai/anthropic
     api_key_env: KIMI_API_KEY
+    console_url: https://platform.kimi.ai/
     auth_header: Authorization
     auth_type: bearer
     default_variant: k2.6
@@ -1298,6 +1322,7 @@ providers:
     provider: moonshot-cn
     base_url: https://api.moonshot.cn/anthropic
     api_key_env: KIMI_CN_API_KEY
+    console_url: https://platform.kimi.com/
     auth_header: Authorization
     auth_type: bearer
     default_variant: k3
@@ -1329,6 +1354,7 @@ providers:
     provider: moonshot-code
     base_url: https://api.kimi.com/coding
     api_key_env: KIMI_CODE_API_KEY
+    console_url: https://www.kimi.com/code/console
     auth_header: x-api-key
     auth_type: api_key
     default_variant: k3-1m
@@ -1361,6 +1387,7 @@ providers:
     provider: minimax-cn
     base_url: https://api.minimaxi.com/anthropic
     api_key_env: MINIMAX_API_KEY
+    console_url: https://platform.minimaxi.com/
     auth_header: Authorization
     auth_type: bearer
     default_variant: m3
@@ -1376,6 +1403,7 @@ providers:
     provider: minimax-global
     base_url: https://api.minimax.io/anthropic
     api_key_env: MINIMAX_GLOBAL_API_KEY
+    console_url: https://platform.minimax.io/
     auth_header: Authorization
     auth_type: bearer
     default_variant: m3
@@ -1391,6 +1419,7 @@ providers:
     provider: alibaba
     base_url: https://dashscope.aliyuncs.com/apps/anthropic
     api_key_env: QWEN_API_KEY
+    console_url: https://dashscope.console.aliyun.com/
     auth_header: x-api-key
     auth_type: api_key
     default_variant: 3.8-max
@@ -1424,6 +1453,7 @@ providers:
     provider: alibaba
     base_url: https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic
     api_key_env: QWEN_PLAN_API_KEY
+    console_url: https://platform.qianwenai.com/
     auth_header: x-api-key
     auth_type: api_key
     default_variant: 3.8-max
@@ -1457,6 +1487,7 @@ providers:
     provider: zhipu-coding
     base_url: https://open.bigmodel.cn/api/anthropic
     api_key_env: GLM_PLAN_API_KEY
+    console_url: https://bigmodel.cn/claude-code
     auth_header: x-api-key
     auth_type: api_key
     default_variant: "5.3"
@@ -1487,6 +1518,7 @@ providers:
     provider: zhipu-global
     base_url: https://api.z.ai/api/anthropic
     api_key_env: GLM_GLOBAL_API_KEY
+    console_url: https://z.ai/model-api
     auth_header: x-api-key
     auth_type: api_key
     default_variant: "5.3"
@@ -1512,6 +1544,7 @@ providers:
     provider: stepfun
     base_url: https://api.stepfun.com
     api_key_env: STEP_API_KEY
+    console_url: https://platform.stepfun.com/
     auth_header: Authorization
     auth_type: bearer
     default_variant: 5-preview
@@ -1527,6 +1560,7 @@ providers:
     provider: stepfun-plan
     base_url: https://api.stepfun.com/step_plan
     api_key_env: STEP_PLAN_API_KEY
+    console_url: https://platform.stepfun.com/
     auth_header: Authorization
     auth_type: bearer
     default_variant: 5-preview
@@ -1602,6 +1636,7 @@ providers:
     provider: xiaomi-payg
     base_url: https://api.xiaomimimo.com/anthropic
     api_key_env: MIMO_PAYG_API_KEY
+    console_url: https://platform.xiaomimimo.com/
     auth_header: api-key
     auth_type: api_key
     default_variant: v2.5-pro
@@ -1623,6 +1658,7 @@ providers:
     # 按量付费（方舟 API 调用）的 Anthropic 兼容接入点；订阅版 Agent Plan 用 /api/plan
     base_url: https://ark.cn-beijing.volces.com/api/compatible
     api_key_env: ARK_API_KEY
+    console_url: https://console.volcengine.com/ark
     auth_header: Authorization
     auth_type: bearer
     default_variant: 2.1-pro
@@ -1644,6 +1680,7 @@ providers:
     # 订阅版 Agent Plan 接入点，需专属 API Key（与按量付费 ARK_API_KEY 不同）
     base_url: https://ark.cn-beijing.volces.com/api/plan
     api_key_env: ARK_PLAN_API_KEY
+    console_url: https://console.volcengine.com/ark
     auth_header: Authorization
     auth_type: bearer
     default_variant: 2.1-pro

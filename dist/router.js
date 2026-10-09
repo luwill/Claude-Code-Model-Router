@@ -41,6 +41,20 @@ function parseUpstreamErrorMessage(errorText) {
         return errorText;
     }
 }
+/** "(get a key: <console>)" when the provider documents a console, else "". */
+function consoleUrlClause(config) {
+    return config.console_url ? ` (get a key: ${config.console_url})` : '';
+}
+/**
+ * C2: what a user does about a rejected or missing key, in one line —
+ * check the env var, where to get a key, and the command that verifies it.
+ * Key rot is the top real-world failure (see the UX audit), so the 401 the
+ * user hits mid-session must route them to `ccmr doctor` immediately.
+ */
+function keyFixHint(name, config) {
+    return (`Check ${config.api_key_env} in .env${consoleUrlClause(config)}, ` +
+        `then verify with: ccmr doctor ${name}`);
+}
 function linkAbortSignal(controller, signal) {
     if (!signal) {
         return () => undefined;
@@ -73,8 +87,11 @@ class ModelRouter {
         }
         const apiKey = this.configManager.getApiKey(resolvedName);
         if (!apiKey) {
+            // C2: the error is the product — name the exact env var, where to get
+            // a key, and how to verify, so the user can act without reading docs.
             throw new RouterError(`API key not configured for model '${modelConfig.display_name}'. ` +
-                `Please set the ${modelConfig.api_key_env} environment variable.`, 401, 'authentication_error');
+                `Set ${modelConfig.api_key_env} in .env${consoleUrlClause(modelConfig)}, ` +
+                `then verify with: ccmr doctor ${resolvedName}`, 401, 'authentication_error');
         }
         return {
             name: resolvedName,
@@ -222,7 +239,10 @@ class ModelRouter {
             });
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new RouterError(`Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`, response.status, 'api_error');
+                const upstreamMessage = `Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`;
+                throw new RouterError(response.status === 401 || response.status === 403
+                    ? `${upstreamMessage} — key rejected. ${keyFixHint(route.name, route.config)}`
+                    : upstreamMessage, response.status, 'api_error');
             }
             return (await response.json());
         }
@@ -269,7 +289,10 @@ class ModelRouter {
             });
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new RouterError(`Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`, response.status, 'api_error');
+                const upstreamMessage = `Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`;
+                throw new RouterError(response.status === 401 || response.status === 403
+                    ? `${upstreamMessage} — key rejected. ${keyFixHint(route.name, route.config)}`
+                    : upstreamMessage, response.status, 'api_error');
             }
             return (await response.json());
         }

@@ -21,6 +21,8 @@ export interface ProviderConfig {
   provider: string;
   base_url: string;
   api_key_env: string;
+  /** Vendor console where the user can create/rotate the api key. */
+  console_url?: string;
   auth_header?: string;
   auth_type?: AuthType;
   supports_streaming?: boolean;
@@ -35,6 +37,8 @@ export interface ModelConfig extends ModelVariantConfig {
   provider: string;
   base_url: string;
   api_key_env: string;
+  /** Vendor console where the user can create/rotate the api key. */
+  console_url?: string;
   auth_header?: string;
   auth_type?: AuthType;
   provider_key?: string;

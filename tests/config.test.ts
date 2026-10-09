@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { ConfigManager, DEFAULT_CONFIG, generateConfigFile } from '../src/config.js';
+import { ConfigManager, DEFAULT_CONFIG, generateConfigFile, generateEnvFile } from '../src/config.js';
 import { stripContextSuffix, withContextSuffix } from '../src/model-suffix.js';
 import type { ProviderConfig } from '../src/types.js';
 
@@ -772,5 +772,64 @@ describe('DEFAULT_CONFIG <-> generateConfigFile() template consistency', () => {
 
   it('alias tables are identical', () => {
     expect(parsed.aliases).toEqual(DEFAULT_CONFIG.aliases);
+  });
+});
+
+describe('console_url: single source of truth for "where do I get a key" (C2)', () => {
+  const manager = new ConfigManager(null);
+
+  it('every built-in provider with a console_url carries it into its models', () => {
+    const config = manager.getConfig();
+    const providersWithUrl = Object.fromEntries(
+      Object.entries(config.providers ?? {})
+        .filter(([, p]) => p.console_url)
+        .map(([key, p]) => [key, p.console_url as string])
+    );
+    // The map is non-trivial: most vendors have a documented console.
+    expect(Object.keys(providersWithUrl).length).toBeGreaterThanOrEqual(12);
+    for (const [providerKey, url] of Object.entries(providersWithUrl)) {
+      for (const [name, model] of Object.entries(config.models)) {
+        if (model.provider_key === providerKey) {
+          expect(model.console_url, `${name} inherits ${providerKey} console_url`).toBe(url);
+        }
+      }
+    }
+  });
+
+  it('the YAML template mirrors DEFAULT_CONFIG console_urls', () => {
+    const template = generateConfigFile();
+    for (const [key, p] of Object.entries(DEFAULT_CONFIG.providers ?? {})) {
+      if (p.console_url) {
+        expect(template).toContain(`console_url: ${p.console_url}`);
+      }
+    }
+  });
+
+  it('the .env template comments stay in sync with provider console_urls', () => {
+    // The .env comments are where users actually look for the URL; if one
+    // drifts from console_url, the gateway error and the .env disagree.
+    const envFile = generateEnvFile();
+    for (const [, p] of Object.entries(DEFAULT_CONFIG.providers ?? {})) {
+      if (p.console_url) {
+        expect(envFile, `${p.api_key_env} comment mentions ${p.console_url}`).toContain(
+          p.console_url
+        );
+      }
+    }
+  });
+
+  it('rejects a console_url that is not an http(s) URL', () => {
+    const file = writeTempConfig(`
+default_model: broken-v1
+providers:
+  broken:
+    provider: custom
+    base_url: https://api.example.com
+    api_key_env: BROKEN_KEY
+    console_url: not-a-url
+    variants:
+      v1: { display_name: "B", model_id: b1, max_tokens: 16, context_window: 8192 }
+`);
+    expect(() => new ConfigManager(file)).toThrow('console_url');
   });
 });

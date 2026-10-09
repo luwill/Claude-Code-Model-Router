@@ -4,6 +4,11 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { ConfigManager } from '../src/config.js';
 import { ModelRouter, RouterError } from '../src/router.js';
 import type { MessagesRequest, ModelConfig } from '../src/types.js';
@@ -203,6 +208,112 @@ describe('ModelRouter.resolveRoute', () => {
     expect(route.name).toBe('kimi-k2.7-code');
     expect(route.config.model_id).toBe('kimi-k2.7-code');
     expect(route.apiKey).toBe('sk-live');
+  });
+
+  // C2: the error is the product. A missing key must tell the user exactly
+  // what to set, where to get it, and how to verify — not just name a var.
+  it('zero-key 401 points to the fix: env var, console URL, doctor check', () => {
+    process.env.KIMI_API_KEY = '';
+    const localRouter = new ModelRouter(new ConfigManager(null));
+    try {
+      localRouter.resolveRoute('kimi-k2.6');
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RouterError);
+      const message = (error as RouterError).message;
+      expect(message).toContain('KIMI_API_KEY');
+      expect(message).toContain('https://platform.kimi.ai/');
+      expect(message).toContain('ccmr doctor kimi-k2.6');
+    }
+  });
+});
+
+describe('ModelRouter upstream auth failures (C2)', () => {
+  const tempDirs: string[] = [];
+  const savedProbeKey = process.env.PROBE_UPSTREAM_KEY;
+  let upstream: http.Server;
+  let upstreamPort: number;
+
+  const listen = (server: http.Server): Promise<number> =>
+    new Promise((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port));
+    });
+
+  const writeTempConfig = (content: string): string => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccmr-router-test-'));
+    tempDirs.push(dir);
+    const file = path.join(dir, 'models.yaml');
+    fs.writeFileSync(file, content);
+    return file;
+  };
+
+  const probeConfig = (port: number): string => `
+default_model: probe-v1
+providers:
+  probe:
+    display_name: Probe Upstream
+    provider: custom
+    base_url: http://127.0.0.1:${port}
+    api_key_env: PROBE_UPSTREAM_KEY
+    auth_type: bearer
+    auth_header: Authorization
+    console_url: https://console.example.com/keys
+    default_variant: v1
+    variants:
+      v1:
+        display_name: "Probe V1"
+        model_id: probe-model-001
+        max_tokens: 4096
+        context_window: 128000
+`;
+
+  afterEach(async () => {
+    for (const dir of tempDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+    if (savedProbeKey === undefined) delete process.env.PROBE_UPSTREAM_KEY;
+    else process.env.PROBE_UPSTREAM_KEY = savedProbeKey;
+    await new Promise((resolve) => upstream?.close(() => resolve(null)));
+  });
+
+  it('appends the key-fix hint (env var, console URL, doctor) to upstream 401s', async () => {
+    upstream = http.createServer((req, res) => {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Invalid Authentication' } }));
+    });
+    upstreamPort = await listen(upstream);
+    process.env.PROBE_UPSTREAM_KEY = 'sk-probe-live';
+
+    const router = new ModelRouter(new ConfigManager(writeTempConfig(probeConfig(upstreamPort))));
+    try {
+      await router.forwardRequest(makeRequest({ model: 'probe-v1' }), {});
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RouterError);
+      const message = (error as RouterError).message;
+      expect(message).toContain('Invalid Authentication');
+      expect(message).toContain('PROBE_UPSTREAM_KEY');
+      expect(message).toContain('https://console.example.com/keys');
+      expect(message).toContain('ccmr doctor probe-v1');
+    }
+  });
+
+  it('leaves non-auth upstream errors unannotated', async () => {
+    upstream = http.createServer((req, res) => {
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'internal wobble' } }));
+    });
+    upstreamPort = await listen(upstream);
+    process.env.PROBE_UPSTREAM_KEY = 'sk-probe-live';
+
+    const router = new ModelRouter(new ConfigManager(writeTempConfig(probeConfig(upstreamPort))));
+    try {
+      await router.forwardRequest(makeRequest({ model: 'probe-v1' }), {});
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(RouterError);
+      const message = (error as RouterError).message;
+      expect(message).toContain('internal wobble');
+      expect(message).not.toContain('ccmr doctor');
+    }
   });
 });
 
