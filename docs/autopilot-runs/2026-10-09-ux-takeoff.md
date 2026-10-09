@@ -76,11 +76,12 @@
 | RF15 | 1/s4 | auditor-stage4 | init 文案改动无运行时证据 | minor-fixed | R4 归档输出 |
 | RF16 | 1/s4 | adversary-stage4 | TTY 下「隐藏输入」明文回显（blocking，演示实为环境伪影：pty 继承会话真实 key → secret 落入可见提问；但机制隐患属实——干净 pty 下原始模式隐藏提示符无法出现） | blocking-fixed | b3606d7：close-recreate 模式；干净 pty 实证提示出现 + 0 回显 + 全流程完成（R5） |
 | RF17 | 1/s4 | adversary-stage4 | 默认 action 使未知命令 exit 0 | minor-fixed | b3606d7：非空参数 → stderr + exit 1（实证） |
-| RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | **approve**：流式 401 对称性、标记修复、测试钉死、证据、门 5 项声称全部核实；隔离 worktree 独立复验 199/199 | proven | 报告原文入 evidence 口径；其范围发现见 RF19 |
+| RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | 无缺陷发现（5 项声称全部核实，approve）；其唯一 minor 记为 RF19 | rejected | 语义=「无发现，无需修复」；报告原文归档 evidence/15-final-reviews.md；初版误用状态值 proven 已按枚举改正（final-audit F2） |
 | RF19 | 2 | round2-review | `resolveListedDefaultName` 按 model_id 字符串匹配，而 model_id 跨 provider 不唯一（step/step-plan 同为 step-5-preview、四家 mimo 同享），自定义无别名 provider 对会把星标错行 | fixed-unreviewed | 0bd275c：改按 ModelConfig 对象引用匹配（normalizeConfig 同引用实测成立）、model_id 仅回退；含跨 provider 共享 model_id 的测试；按 round-2 规则不再开 round-3，由落地终审覆盖 |
-| RF20 | 落地 | final-audit + final-adversary（双双 429 阵亡） | 全程终审的两个新上下文评审因上游配额耗尽（glm-plan 5 小时上限，14:01 重置）未能执行 | degraded→healed(半) | final-adversary 稍后**自行恢复并交付**：verdict approve + 2 minor（见 RF21/RF22）；final-audit 仍未交付，其核查由内联四项替代（引用匹配 live 探针、secrets 扫描、dist 同步、remote 未推）；可选 P7 仍开放 |
+| RF20 | 落地 | final-audit + final-adversary | 首判「双双 429 阵亡」；随后**两位均自行恢复并交付**：final-adversary approve + 2 minor（RF21/RF22），final-audit accept + 6 minor（F1–F6） | minor-fixed | 全程终审完整发生；降级叙事已被事实推翻并改写（D14 保留为当时决策）。迟到原文归档 evidence/15-final-reviews.md |
 | RF21 | 落地 | final-adversary | `setup --yes --validate` 全部厂商验证失败仍 exit 0——宣传中的 CI 门禁不能红，给死 key 开绿灯 | minor-fixed | 1264a15：`allValidationsFailed` 进 outcome（部分失败不阻断），CLI 全败 exit 1；真实失效 key 实测 real exit=1；README 语义入档。fixed-unreviewed |
 | RF22 | 落地 | final-adversary | 隐藏输入处 Ctrl+D 被当字符追加进 key 落盘（且多行粘贴内部控制字符同样存活） | minor-fixed | 1264a15：Ctrl+D=干净中止（pty 实测：无 key 写入、无控制字符落盘）；回车时剥离全部控制字符。fixed-unreviewed |
+| RF23 | 落地 | final-audit | b8b5207 提交标题称 "7/7 incl. npm audit" 而其证据实录 audit FAILED（exit 1，4 漏洞）；4d7e7ce 类型误标 fix:（仅文档） | minor-acknowledged | 后续提交（bbbcd34 修复 + 13b 全绿 + 62d2dd4 说明性提交信息）已诚实纠正并保留失败记录；历史提交不改写（红线）；F5 重问残留同轮修复（1264a15 后续：3 次未识别→跳过并明示，实证 models.yaml 不落盘） |
 
 `status` 为 `blocking-fixed`、`minor-fixed`、`minor-open`、`fixed-unreviewed`、`parked`、`rejected` 或 `dispute`。
 

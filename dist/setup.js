@@ -373,14 +373,23 @@ async function runInteractiveSetup(options) {
     const pick = pickDefaultModel(freshPlan, justConfigured);
     if (pick) {
         let answer = '';
+        let recognized = false;
         for (let attempt = 0; attempt < 3; attempt++) {
             answer = await prompter.ask(`Default model [${pick}] (Enter = accept, k = keep ${freshPlan.currentDefault}, n = skip): `);
             // Anything but '', 'k' or 'n' is a slip: re-ask instead of silently
             // accepting the suggestion. EOF (piped stdin) yields '' on the first
             // round, so the loop still terminates.
-            if (['', 'k', 'n'].includes(answer.toLowerCase()))
+            if (['', 'k', 'n'].includes(answer.toLowerCase())) {
+                recognized = true;
                 break;
+            }
             console.log(`  Unrecognized answer '${answer}' - Enter, k or n.`);
+        }
+        if (!recognized) {
+            // Three unrecognized answers mean confusion, not consent: change
+            // nothing rather than accept the suggestion (final-audit F5).
+            console.log('  Skipping default-model change after 3 unrecognized answers.');
+            answer = 'n';
         }
         if (answer.toLowerCase() !== 'n') {
             defaultModel = answer.toLowerCase() === 'k' ? freshPlan.currentDefault : pick;
