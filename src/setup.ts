@@ -66,6 +66,8 @@ export interface SetupOutcome {
   skipped?: EnvUpdate[];
   defaultModel?: string | null;
   validation?: ValidationOutcome[];
+  /** True when --validate ran and every provider failed: the CLI turns this into exit 1 (CI gate). */
+  allValidationsFailed?: boolean;
 }
 
 export type ProviderValidator = (
@@ -224,7 +226,10 @@ export async function runNonInteractiveSetup(
     }
   }
 
-  return { ok: true, written, skipped, defaultModel, validation };
+  const allValidationsFailed =
+    validation !== undefined && validation.length > 0 && validation.every((v) => v.status === 'fail');
+
+  return { ok: true, written, skipped, defaultModel, validation, allValidationsFailed };
 }
 
 /** Validate one provider through the doctor path (one tiny real request). */
@@ -302,11 +307,20 @@ function questionHidden(prompt: string): Promise<string> {
         cleanup();
         process.stdout.write('\n');
         stdin.pause();
-        resolve(buffer.trim());
+        // A pasted key can carry interior newlines/controls; keys never
+        // contain them, so strip rather than write a corrupt entry.
+        resolve(buffer.replace(/[\x00-\x1f\x7f]/g, '').trim());
       } else if (s === '\u0003') {
         cleanup();
         process.stdout.write('\n');
         process.exit(130);
+      } else if (s === '\u0004') {
+        // Ctrl+D is the reflex "abort this prompt" key elsewhere; here it
+        // must not be swallowed into the key (final-adversary round).
+        cleanup();
+        process.stdout.write('\n');
+        stdin.pause();
+        resolve('');
       } else if (s === '\u007f' || s === '\b') {
         buffer = buffer.slice(0, -1);
       } else {
@@ -492,5 +506,8 @@ export async function runInteractiveSetup(options: InteractiveOptions): Promise<
   console.log('  ccmr doctor    # full connectivity report');
   console.log('  ccmr models    # list models and switch defaults');
   console.log('');
-  return { ok: true, written, skipped, defaultModel, validation };
+  const allValidationsFailed =
+    validation !== undefined && validation.length > 0 && validation.every((v) => v.status === 'fail');
+
+  return { ok: true, written, skipped, defaultModel, validation, allValidationsFailed };
 }

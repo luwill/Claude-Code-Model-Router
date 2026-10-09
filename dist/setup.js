@@ -158,7 +158,8 @@ async function runNonInteractiveSetup(options) {
             (0, default_model_js_1.persistDefaultModel)(generated, defaultModel);
         }
     }
-    return { ok: true, written, skipped, defaultModel, validation };
+    const allValidationsFailed = validation !== undefined && validation.length > 0 && validation.every((v) => v.status === 'fail');
+    return { ok: true, written, skipped, defaultModel, validation, allValidationsFailed };
 }
 /** Validate one provider through the doctor path (one tiny real request). */
 function makeDoctorValidator(configManager) {
@@ -230,12 +231,22 @@ function questionHidden(prompt) {
                 cleanup();
                 process.stdout.write('\n');
                 stdin.pause();
-                resolve(buffer.trim());
+                // A pasted key can carry interior newlines/controls; keys never
+                // contain them, so strip rather than write a corrupt entry.
+                resolve(buffer.replace(/[\x00-\x1f\x7f]/g, '').trim());
             }
             else if (s === '\u0003') {
                 cleanup();
                 process.stdout.write('\n');
                 process.exit(130);
+            }
+            else if (s === '\u0004') {
+                // Ctrl+D is the reflex "abort this prompt" key elsewhere; here it
+                // must not be swallowed into the key (final-adversary round).
+                cleanup();
+                process.stdout.write('\n');
+                stdin.pause();
+                resolve('');
             }
             else if (s === '\u007f' || s === '\b') {
                 buffer = buffer.slice(0, -1);
@@ -394,6 +405,7 @@ async function runInteractiveSetup(options) {
     console.log('  ccmr doctor    # full connectivity report');
     console.log('  ccmr models    # list models and switch defaults');
     console.log('');
-    return { ok: true, written, skipped, defaultModel, validation };
+    const allValidationsFailed = validation !== undefined && validation.length > 0 && validation.every((v) => v.status === 'fail');
+    return { ok: true, written, skipped, defaultModel, validation, allValidationsFailed };
 }
 //# sourceMappingURL=setup.js.map

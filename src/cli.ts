@@ -163,6 +163,13 @@ program
           const mark = v.status === 'ok' ? '\x1b[32m[OK]\x1b[0m' : '\x1b[31m[FAIL]\x1b[0m';
           console.log(`  ${mark} ${v.model}${v.detail ? ` ${v.detail}` : ''}`);
         }
+        if (result.allValidationsFailed) {
+          // A CI gate that stays green on dead keys green-lights them.
+          console.error(
+            '\x1b[31m[ERROR]\x1b[0m every provider validation failed - keys persisted, but nothing is usable.'
+          );
+          process.exit(1);
+        }
         if (result.defaultModel) {
           console.log(`Default model: ${result.defaultModel}`);
         }

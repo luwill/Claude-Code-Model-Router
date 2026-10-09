@@ -53,6 +53,8 @@ export interface SetupOutcome {
     skipped?: EnvUpdate[];
     defaultModel?: string | null;
     validation?: ValidationOutcome[];
+    /** True when --validate ran and every provider failed: the CLI turns this into exit 1 (CI gate). */
+    allValidationsFailed?: boolean;
 }
 export type ProviderValidator = (provider: ProviderStatus) => Promise<{
     status: 'ok' | 'fail';

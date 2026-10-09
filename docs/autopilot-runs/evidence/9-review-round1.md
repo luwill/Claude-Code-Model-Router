@@ -50,3 +50,8 @@ Reviewer's pty demo inherited the session's real provider keys, so provider 1 re
 - fixed close-recreate pattern: 'Paste DEEPSEEK_API_KEY' prompt appears, secret char-by-char echoes 0 times, flow completes to Next steps (script in this run's transcript; probe rerun twice)
 - original persistent-readline pattern: the hidden prompt failed to appear at all after the pick — the shared-readline hazard is real in kind
 Conclusion: blocking-fixed; demonstration was an artifact, mechanism concern was valid.
+
+## R6 final-adversary minor fixes — 2026-10-09 11:00:15, HEAD
+- `setup --yes --validate` 全部厂商失败 → exit 1（真实失效 DEEPSEEK key 实测 real exit=1 + [ERROR] 行；部分失败仍只报告——单元测试覆盖两分支）
+- Ctrl+D 在隐藏输入处=干净中止：pty 实测按 Ctrl+D 后再输入，.env 未创建、无控制字符落盘（无 key 写入）
+- README --validate 退出码语义入档

@@ -62,6 +62,7 @@ npx claude-code-model-router init --global  # 写入 ~/.ccmr，全目录共享�
 # 引导式配置 API Keys（选厂商 → 粘贴 Key → 可选即时验证 → 设默认模型）
 npx claude-code-model-router setup
 npx claude-code-model-router setup --yes --validate  # 非交互：取环境变量里的 Key 并逐个验证
+# --validate 下「全部厂商验证失败」时退出码为 1（CI 门禁语义）；部分失败只报告不阻断
 
 # 启动网关（前台运行；models.yaml / .env 修改后自动热重载，无需重启）
 npx claude-code-model-router start

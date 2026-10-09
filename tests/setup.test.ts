@@ -236,6 +236,31 @@ describe('runNonInteractiveSetup', () => {
       expect(result.ok).toBe(true); // keys persisted; validation is reported, not fatal
       expect(result.validation?.[0]?.status).toBe('fail');
       expect(result.validation?.[0]?.detail).toContain('401');
+      // ...but when every provider fails, the CLI must be able to fail the
+      // CI gate (final-adversary finding): the flag carries that decision.
+      expect(result.allValidationsFailed).toBe(true);
+    });
+  });
+
+  it('keeps allValidationsFailed false when any provider validates (final-adversary fix)', async () => {
+    await withBlankedProviders(async () => {
+      process.env.DEEPSEEK_API_KEY = 'unit-test-fake';
+      process.env.KIMI_API_KEY = 'unit-test-fake';
+      const dir = tempDir();
+      fs.writeFileSync(path.join(dir, 'models.yaml'), 'default_model: deepseek-flash\n');
+      fs.writeFileSync(path.join(dir, '.env'), 'DEEPSEEK_API_KEY=\n');
+      const configManager = new ConfigManager(path.join(dir, 'models.yaml'));
+      const outcomes: Record<string, 'ok' | 'fail'> = {
+        DEEPSEEK_API_KEY: 'ok',
+        KIMI_API_KEY: 'fail',
+      };
+      const result = await runNonInteractiveSetup({
+        configManager,
+        envFile: path.join(dir, '.env'),
+        validate: true,
+        validateProvider: async (provider) => ({ status: outcomes[provider.apiKeyEnv] }),
+      });
+      expect(result.allValidationsFailed).toBe(false);
     });
   });
 });
