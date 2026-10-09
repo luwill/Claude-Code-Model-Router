@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { renderModelsTable, renderUsageTable } from '../src/cli-views.js';
+import { renderModelsTable, renderUsageTable, resolveListedDefaultName } from '../src/cli-views.js';
 import type { UsageReport } from '../src/cli-views.js';
 
 const stripAnsi = (line: string): string => line.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
@@ -88,5 +88,44 @@ describe('renderUsageTable', () => {
     };
     const lines = renderUsageTable(empty, 8081).map(stripAnsi);
     expect(lines.some((l) => l.includes('no requests yet'))).toBe(true);
+  });
+});
+
+describe('resolveListedDefaultName (review round-1 fix)', () => {
+  // Custom provider 'acme': `ccmr use acme` persists the bare provider key,
+  // which listModels() skips — the marker must land on the default variant.
+  const listed = {
+    'acme-pro': {
+      displayName: 'Acme Pro',
+      provider: 'acme',
+      variant: 'pro',
+      available: true,
+    },
+    'acme-lite': {
+      displayName: 'Acme Lite',
+      provider: 'acme',
+      variant: 'lite',
+      available: false,
+    },
+  };
+  const modelIdOf = {
+    acme: 'acme-pro-model', // shorthand entry config carries
+    'acme-pro': 'acme-pro-model',
+    'acme-lite': 'acme-lite-model',
+  };
+
+  it('maps a bare provider-key default onto the default variant row', () => {
+    expect(resolveListedDefaultName(listed, 'acme', modelIdOf)).toBe('acme-pro');
+  });
+
+  it('keeps a default that is already listed', () => {
+    expect(resolveListedDefaultName(listed, 'acme-lite', modelIdOf)).toBe('acme-lite');
+  });
+
+  it('renders a starred row for the shorthand default end-to-end', () => {
+    const resolved = resolveListedDefaultName(listed, 'acme', modelIdOf);
+    const lines = renderModelsTable(listed, resolved).map(stripAnsi);
+    expect(lines.find((l) => l.includes('acme-pro'))!.trimStart().startsWith('*')).toBe(true);
+    expect(lines.find((l) => l.includes('default'))!.includes('acme-pro')).toBe(true);
   });
 });

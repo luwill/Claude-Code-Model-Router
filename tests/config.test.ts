@@ -785,8 +785,15 @@ describe('console_url: single source of truth for "where do I get a key" (C2)', 
         .filter(([, p]) => p.console_url)
         .map(([key, p]) => [key, p.console_url as string])
     );
-    // The map is non-trivial: most vendors have a documented console.
+    // The map is non-trivial: most vendors have a documented console, and
+    // exactly the three MiMo token-plan clusters have no public one.
     expect(Object.keys(providersWithUrl).length).toBeGreaterThanOrEqual(12);
+    expect(
+      Object.entries(config.providers ?? {})
+        .filter(([, p]) => !p.console_url)
+        .map(([key]) => key)
+        .sort()
+    ).toEqual(['mimo', 'mimo-token-ams', 'mimo-token-cn']);
     for (const [providerKey, url] of Object.entries(providersWithUrl)) {
       for (const [name, model] of Object.entries(config.models)) {
         if (model.provider_key === providerKey) {
@@ -831,5 +838,14 @@ providers:
       v1: { display_name: "B", model_id: b1, max_tokens: 16, context_window: 8192 }
 `);
     expect(() => new ConfigManager(file)).toThrow('console_url');
+  });
+
+  it('the tracked .env.example covers every provider env var (review round-1 fix)', () => {
+    const example = fs.readFileSync(new URL('../.env.example', import.meta.url), 'utf-8');
+    for (const [, p] of Object.entries(DEFAULT_CONFIG.providers ?? {})) {
+      expect(example, `${p.api_key_env} documented in .env.example`).toMatch(
+        new RegExp(`^${p.api_key_env}=`, 'm')
+      );
+    }
   });
 });

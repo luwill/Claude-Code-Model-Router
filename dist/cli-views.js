@@ -7,6 +7,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderModelsTable = renderModelsTable;
+exports.resolveListedDefaultName = resolveListedDefaultName;
 exports.renderUsageTable = renderUsageTable;
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -38,6 +39,24 @@ function renderModelsTable(models, defaultModel) {
         lines.push(`* ${defaultModel} is the default model (change with: ccmr use <model>)`);
     }
     return lines;
+}
+/**
+ * Map a configured default_model onto a name the table actually lists.
+ * `ccmr use <provider-key>` persists the provider's bare key (e.g. 'acme'),
+ * but listModels() skips those shorthand rows — without this resolution the
+ * legend prints while no row gets the marker.
+ */
+function resolveListedDefaultName(listed, defaultModel, modelIdOf) {
+    if (listed[defaultModel])
+        return defaultModel;
+    const targetId = modelIdOf[defaultModel];
+    if (!targetId)
+        return undefined;
+    for (const name of Object.keys(listed)) {
+        if (modelIdOf[name] === targetId)
+            return name;
+    }
+    return undefined;
 }
 /**
  * Rows for the `ccmr stats` table. The header names the gateway port the

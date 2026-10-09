@@ -8,7 +8,7 @@ import { InvalidArgumentError, program } from 'commander';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConfigManager, generateConfigFile, generateEnvFile } from './config.js';
-import { renderModelsTable, renderUsageTable } from './cli-views.js';
+import { renderModelsTable, renderUsageTable, resolveListedDefaultName } from './cli-views.js';
 import type { UsageReport } from './cli-views.js';
 import { buildSetupPlan, runInteractiveSetup, runNonInteractiveSetup } from './setup.js';
 import { persistDefaultModel } from './default-model.js';
@@ -184,11 +184,15 @@ program
       const configManager = new ConfigManager(options.config);
       const models = configManager.listModels();
       const config = configManager.getConfig();
+      const modelIdOf = Object.fromEntries(
+        Object.entries(config.models).map(([name, model]) => [name, model.model_id])
+      );
+      const listedDefault = resolveListedDefaultName(models, config.default_model, modelIdOf);
 
       console.log('');
       console.log('Available models:');
       console.log('');
-      for (const line of renderModelsTable(models, config.default_model)) {
+      for (const line of renderModelsTable(models, listedDefault)) {
         console.log(line);
       }
 

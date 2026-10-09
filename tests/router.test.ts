@@ -315,6 +315,32 @@ providers:
       expect(message).not.toContain('ccmr doctor');
     }
   });
+
+  // Claude Code streams by default: the mid-session dead-key 401 (audit H2)
+  // surfaces HERE, so the hint must exist on the streaming path too.
+  it('annotates upstream 401s on the streaming path (review round-1 blocking fix)', async () => {
+    upstream = http.createServer((req, res) => {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Invalid Authentication' } }));
+    });
+    upstreamPort = await listen(upstream);
+    process.env.PROBE_UPSTREAM_KEY = 'sk-probe-live';
+
+    const router = new ModelRouter(new ConfigManager(writeTempConfig(probeConfig(upstreamPort))));
+    const events: string[] = [];
+    for await (const event of router.forwardStream(
+      makeRequest({ model: 'probe-v1', stream: true }),
+      {}
+    )) {
+      events.push(event);
+    }
+    const joined = events.join('\n');
+    expect(joined).toContain('Invalid Authentication');
+    expect(joined).toContain('Upstream API error (custom)');
+    expect(joined).toContain('PROBE_UPSTREAM_KEY');
+    expect(joined).toContain('https://console.example.com/keys');
+    expect(joined).toContain('ccmr doctor probe-v1');
+  });
 });
 
 describe('ModelRouter streaming byte handling', () => {

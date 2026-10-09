@@ -28,6 +28,13 @@ export interface UsageReport {
  */
 export declare function renderModelsTable(models: Record<string, ModelListEntry>, defaultModel?: string): string[];
 /**
+ * Map a configured default_model onto a name the table actually lists.
+ * `ccmr use <provider-key>` persists the provider's bare key (e.g. 'acme'),
+ * but listModels() skips those shorthand rows — without this resolution the
+ * legend prints while no row gets the marker.
+ */
+export declare function resolveListedDefaultName(listed: Record<string, ModelListEntry>, defaultModel: string, modelIdOf: Record<string, string>): string | undefined;
+/**
  * Rows for the `ccmr stats` table. The header names the gateway port the
  * numbers were read from — with several gateways running, an unlabelled
  * table silently answers for the wrong one.

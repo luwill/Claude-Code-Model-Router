@@ -392,7 +392,13 @@ class ModelRouter {
                 finally {
                     unlinkAbort();
                 }
-                const routerError = new RouterError(parseUpstreamErrorMessage(errorText), response.status, 'api_error');
+                // Same shape as the non-streaming paths: vendor text verbatim, and
+                // on 401/403 the key-fix hint — Claude Code sessions stream by
+                // default, so this is where a dead key actually surfaces (audit H2).
+                const upstreamMessage = `Upstream API error (${route.config.provider}): ${parseUpstreamErrorMessage(errorText)}`;
+                const routerError = new RouterError(response.status === 401 || response.status === 403
+                    ? `${upstreamMessage} — key rejected. ${keyFixHint(route.name, route.config)}`
+                    : upstreamMessage, response.status, 'api_error');
                 this.usageTracker?.recordError(route.name);
                 lastError = routerError;
                 if (isRetryable(routerError) && i < chain.length - 1) {
