@@ -32,3 +32,10 @@ verdict: **accept**，6 条 minor（→F1–F6 裁定见运行记录 RF20/RF23 �
 C1–C5 全部 proven（证据链见其报告）。红线核查通过：分支无 upstream 未 push；package.json 仅版本行；bbbcd34 只动 lockfile；全量 diff 密钥扫描仅占位符；scratch 端口在预授权区间；.git/info/exclude 已披露；fixed-unreviewed 三提交均核实为真（f0fe5cc/b3606d7/0bd275c，含 config.ts:833-834 同引用确证）。
 
 Findings：F1 审计期间工作树有 head 后在途改动（后经 1264a15 等提交过门收口）；F2 RF18 状态值 proven 越界 + round-2 原文未归档（本文件补齐）；F3 探针脏树戳（RF7/RF14 已承认）；F4 b8b5207 标题称 7/7 而证据实录 FAILED（后续提交已纠正，历史不改写）；F5 默认模型重问 3 次未识别后仍静默采纳（已修：改为跳过）；F6 4d7e7ce 类型误标 fix:（仅文档，历史不改写）。
+
+## R7 ccmr claude full-chain E2E (user question, closes the last not-verified item) — 2026-10-09 14:12:45, 675737f
+$ ccmr claude --gateway-port 8097 --dangerously-skip-permissions -p "..."  (scratch dir, STEP key, clean env)
+- First run: launch preflight REFUSED (default deepseek-flash has no key) and prescribed the exact fix — the audited good design, live.
+- With --model step-5-preview: exit=0 in 2s, output 'CCMR-E2E-OK'; gateway auto-started on 8097, v1.22.0, Claude Code SDK mode, routed via Step.
+- Note: [claude-code:unrecognized_model] is client-side tagging of a non-official model name; request still round-trips (trap #7: client warning != router bug).
+- Gateway stopped afterwards (only the one this probe started).
