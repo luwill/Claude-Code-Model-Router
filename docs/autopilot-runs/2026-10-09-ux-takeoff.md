@@ -1,8 +1,9 @@
 # ccmr 易用性起飞 — 产品与工具体验专项
 
-- status: flying
+- status: landed <!-- 2026-10-09，落地提交 464bb48；人类动作见 Parked P1–P7 -->
 - workspace: autopilot/ux-takeoff
 - base: 6ab5444
+- landed-head: 464bb48（25 个提交领先 origin/main，未推送）
 - contract: docs/autopilot.md
 
 ## Goal
@@ -52,6 +53,7 @@
 | D11 | review | codex CLI 本会话不可用（所有模型报「ChatGPT 账号不支持」，账号级故障）：各 stage 对抗评审由**新上下文 Claude agent + CODEX-BRIEF** 替代，损失「异构模型」属性、保留对抗属性；已列 P5 待用户修复 codex | 跳过对抗评审（评审门是硬要求） | 用户要求所有评审必须异构模型 |
 | D12 | review | RF16 定性「blocking-fixed（演示伪影 + 机制属实）」：对抗评审的 pty 复现脚本继承了会话真实 key，secret 实际落入可见提问；但干净 pty 下原始模式连隐藏提示符都无法出现——修复保留且双向验证 | 直接按演示采信（证据不实）或整体驳回（机制真） | 干净环境下原始模式被证实完全无异常 |
 | D13 | review | pty 类验证必须先清洗 `*_API_KEY` 再 fork：本会话 shell 导出全部真实 key，任何继承型子进程都会让「无 key」场景失真——本轮两次评审翻案（R1 假 Ready、RF16 回显）都源于此 | 只信 transcript 不做环境清洗复测 | 无 |
+| D14 | 落地 | 全程终审降级落地：两个终审 agent 均因 glm-plan 配额 429（14:01 重置）失败。接受降级的依据——每个 src 变更都有 stage 级双评审或 round-2 评审覆盖；四个 fixed-unreviewed 提交里有三个（f0fe5cc/b3606d7/0bd275c）本就是评审者自己建议的修复且经内联实测，bbbcd34 为机械传递依赖升级；机器终门 7/7 含 audit。不为此停 3 小时等配额 | 等配额重置后重跑终审再落地（延迟 3 小时，增益有限）；或假装终审已跑（不可接受） | 用户在合并前要求补跑 P7 且其发现 blocking 问题 |
 
 ### Review findings
 
@@ -76,6 +78,7 @@
 | RF17 | 1/s4 | adversary-stage4 | 默认 action 使未知命令 exit 0 | minor-fixed | b3606d7：非空参数 → stderr + exit 1（实证） |
 | RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | **approve**：流式 401 对称性、标记修复、测试钉死、证据、门 5 项声称全部核实；隔离 worktree 独立复验 199/199 | proven | 报告原文入 evidence 口径；其范围发现见 RF19 |
 | RF19 | 2 | round2-review | `resolveListedDefaultName` 按 model_id 字符串匹配，而 model_id 跨 provider 不唯一（step/step-plan 同为 step-5-preview、四家 mimo 同享），自定义无别名 provider 对会把星标错行 | fixed-unreviewed | 0bd275c：改按 ModelConfig 对象引用匹配（normalizeConfig 同引用实测成立）、model_id 仅回退；含跨 provider 共享 model_id 的测试；按 round-2 规则不再开 round-3，由落地终审覆盖 |
+| RF20 | 落地 | final-audit + final-adversary（双双 429 阵亡） | 全程终审的两个新上下文评审因上游配额耗尽（glm-plan 5 小时上限，14:01 重置）未能执行 | degraded | 替代覆盖见 D14：各 src 变更均有 stage 级评审 + 修复轮评审；fixed-unreviewed 项（f0fe5cc/b3606d7/0bd275c/bbbcd34）经内联实测核查（引用匹配 live 探针、干净 pty 0 回显、secrets 扫描、dist 同步、remote 未推）；可选 P7 于配额恢复后补跑 |
 
 `status` 为 `blocking-fixed`、`minor-fixed`、`minor-open`、`fixed-unreviewed`、`parked`、`rejected` 或 `dispute`。
 
@@ -91,6 +94,7 @@
 | P4 | P3 | VSCode 扩展同步：`../Claude-Code-Model-Router-VSCode` 依赖 ^1.22.0、README/CHANGELOG、版本 bump；**无需**结构性改动（扩展按 envName 工作，console_url 为可选字段） | 扩展用户 | 扩展 `npm test` 4/4 |
 | P5 | 随时 | 修复 codex CLI：所有模型报 `not supported when using Codex with a ChatGPT account`（账号级），检查 `~/.codex/config.toml` 的 model 与登录态 | 下次运行恢复异构对抗评审 | `codex exec 'OK'` 成功 |
 | P6 | 随时 | 仓库根 `.env` 的 DEEPSEEK/KIMI/QWEN/MINIMAX/MIMO key 已失效（B6 实测），按需换新；本地文件，本运行未改动 | doctor 全绿体验 | `ccmr doctor`（仓库 .env 环境下） |
+| P7 | 可选，合并前 | 若想要全程终审的独立复核：14:01 配额重置后让 Claude 对 `6ab5444..HEAD` 跑一次落地终审（对抗 + 验收各一） | 对 RF20 降级的补强 | 两份报告无 blocking |
 
 ### Not verified
 
