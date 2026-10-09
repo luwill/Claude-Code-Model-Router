@@ -3,7 +3,7 @@
 - status: landed <!-- 2026-10-09，最终提交 53bfe08；人类动作见 Parked P1–P7 -->
 - workspace: autopilot/ux-takeoff
 - base: 6ab5444
-- landed-head: 53bfe08（代码终点，其后仅运行记录文档提交；全程未推送）
+- landed-head: 675737f（代码终点，其后仅证据/记录文档提交；全程未推送）
 - contract: docs/autopilot.md
 
 ## Goal
