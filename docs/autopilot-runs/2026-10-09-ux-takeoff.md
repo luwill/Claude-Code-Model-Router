@@ -74,7 +74,8 @@
 | RF15 | 1/s4 | auditor-stage4 | init 文案改动无运行时证据 | minor-fixed | R4 归档输出 |
 | RF16 | 1/s4 | adversary-stage4 | TTY 下「隐藏输入」明文回显（blocking，演示实为环境伪影：pty 继承会话真实 key → secret 落入可见提问；但机制隐患属实——干净 pty 下原始模式隐藏提示符无法出现） | blocking-fixed | b3606d7：close-recreate 模式；干净 pty 实证提示出现 + 0 回显 + 全流程完成（R5） |
 | RF17 | 1/s4 | adversary-stage4 | 默认 action 使未知命令 exit 0 | minor-fixed | b3606d7：非空参数 → stderr + exit 1（实证） |
-| RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | （回传后填写） | pending | 其范围外的 f0fe5cc/b3606d7 修复依规则记 fixed-unreviewed，由落地终审覆盖 |
+| RF18 | 2 | round2-review（对抗+验收合体，审 3990024..1df1f5e 修复差分） | **approve**：流式 401 对称性、标记修复、测试钉死、证据、门 5 项声称全部核实；隔离 worktree 独立复验 199/199 | proven | 报告原文入 evidence 口径；其范围发现见 RF19 |
+| RF19 | 2 | round2-review | `resolveListedDefaultName` 按 model_id 字符串匹配，而 model_id 跨 provider 不唯一（step/step-plan 同为 step-5-preview、四家 mimo 同享），自定义无别名 provider 对会把星标错行 | fixed-unreviewed | 0bd275c：改按 ModelConfig 对象引用匹配（normalizeConfig 同引用实测成立）、model_id 仅回退；含跨 provider 共享 model_id 的测试；按 round-2 规则不再开 round-3，由落地终审覆盖 |
 
 `status` 为 `blocking-fixed`、`minor-fixed`、`minor-open`、`fixed-unreviewed`、`parked`、`rejected` 或 `dispute`。
 
@@ -93,10 +94,10 @@
 
 ### Not verified
 
-- **真实 TTY 下的隐藏输入**：交互流程以管道 stdin 验证（F4）；raw-mode 逐键输入、退格、Ctrl+C 走查需真终端——验收走查第 1 步
+- **真实 TTY 的人工体验**：隐藏输入已用 pty 驱动器验证（提示出现 + 0 回显 + 全流程完成，R5），但真人终端下的手感（退格、粘贴行为）仍属验收走查第 1 步
 - **`ccmr claude` 全链路 E2E**（拉起 Claude Code → /model 切换 → 收到回复）：launcher 路径本运行未改动，留给验收走查第 3 步用真实终端体验
 - **网关运行中 setup 写 .env 的热重载联动**：watcher 为既有代码（reload.test.ts 覆盖），本运行未端到端实测「setup 后免重启生效」
-- doctor 在 8080 实况网关之外的并发行为、Windows 终端下的 ANSI/交互表现（无环境）
+- Windows 终端下的 ANSI/交互表现（无环境）；CI 的 Node 18 任务对 bbbcd34 传递依赖升级的验证（推送后 P2 由 Actions 覆盖）
 
 ## Acceptance walk
 
