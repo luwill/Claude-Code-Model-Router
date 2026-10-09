@@ -101,10 +101,10 @@
 
 ### Not verified
 
-- **真实 TTY 的人工体验**：隐藏输入已用 pty 驱动器验证（提示出现 + 0 回显 + 全流程完成，R5），但真人终端下的手感（退格、粘贴行为）仍属验收走查第 1 步
-- **`ccmr claude` 全链路 E2E**（拉起 Claude Code → /model 切换 → 收到回复）：launcher 路径本运行未改动，留给验收走查第 3 步用真实终端体验
+- **真人 TTY 手感**：隐藏输入与流程已由 pty 驱动器验证（R5/R6），真人终端下的退格/粘贴手感仍属验收走查第 1 步
 - **网关运行中 setup 写 .env 的热重载联动**：watcher 为既有代码（reload.test.ts 覆盖），本运行未端到端实测「setup 后免重启生效」
 - Windows 终端下的 ANSI/交互表现（无环境）；CI 的 Node 18 任务对 bbbcd34 传递依赖升级的验证（推送后 P2 由 Actions 覆盖）
+- ~~`ccmr claude` 全链路 E2E~~ **已验证**（落地后用户提问触发，evidence/15-final-reviews.md R7：预检拦截 + `--model step-5-preview` 下 exit=0 / 2s / `CCMR-E2E-OK`）
 
 ## Acceptance walk
 
