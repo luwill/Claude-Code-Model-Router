@@ -836,8 +836,16 @@ program
 
 // Bare `ccmr` (no command): commander would print bare help and exit, so
 // the default action owns this case instead — first-run detection routes a
-// fresh install straight to `ccmr setup` (audit M5).
-program.action(() => {
+// fresh install straight to `ccmr setup` (audit M5). With a default action
+// commander also routes UNKNOWN commands here, so the old "unknown command"
+// error must be restored by hand or typos exit 0.
+program.action((_, command) => {
+  const args = command.args ?? [];
+  if (args.length > 0) {
+    console.error(`error: unknown command '${args[0]}'`);
+    console.error("Run 'ccmr --help' for the list of commands.");
+    process.exit(1);
+  }
   console.log('');
   console.log('Claude Code Model Router v' + VERSION);
   console.log('');

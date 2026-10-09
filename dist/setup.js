@@ -249,10 +249,22 @@ function questionHidden(prompt) {
 }
 function makePrompter() {
     if (process.stdin.isTTY) {
-        const rl = node_readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
+        // One reader at a time: readline software-echoes every keystroke, so a
+        // live interface must not stay attached while questionHidden reads the
+        // secret in raw mode (round-1 review: the key echoed in cleartext).
+        // Closing before and recreating after is the proven pattern.
+        let rl = node_readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
         return {
             ask: (prompt) => question(rl, prompt),
-            secret: (prompt) => questionHidden(prompt),
+            secret: async (prompt) => {
+                rl.close();
+                try {
+                    return await questionHidden(prompt);
+                }
+                finally {
+                    rl = node_readline_1.default.createInterface({ input: process.stdin, output: process.stdout });
+                }
+            },
             close: () => rl.close(),
         };
     }
