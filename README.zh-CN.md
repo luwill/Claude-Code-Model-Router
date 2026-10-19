@@ -8,7 +8,7 @@
 
 **会话中一句话切换 40+ 第三方模型——不用重启，不用改配置文件。**
 
-ccmr 是一个跑在本机的轻量 API 网关：Claude Code 连它，它把请求原样转发给你选的模型（DeepSeek、Kimi、Qwen、GLM、MiniMax、Step、MiMo、豆包 Seed，8 家 42 个型号全部预配好）。在会话里 `/model kimi` 回车即切；Key 失效时错误信息直接告诉你「改哪个变量、去哪申请、跑什么命令验证」；配置和 Key 改完约 1 秒热重载。默认只监听 127.0.0.1，全本地。
+ccmr 是一个跑在本机的轻量 API 网关：Claude Code 连它，它把请求原样转发给你选的模型（DeepSeek、Kimi、Qwen、GLM、MiniMax、Step、MiMo、豆包 Seed，8 家 44 个型号全部预配好）。在会话里 `/model kimi` 回车即切；Key 失效时错误信息直接告诉你「改哪个变量、去哪申请、跑什么命令验证」；配置和 Key 改完约 1 秒热重载。默认只监听 127.0.0.1，全本地。
 
 **[English](README.md)** · 简体中文
 
@@ -38,7 +38,7 @@ $ ccmr claude        # 进入 Claude Code，会话内任意切：
 |---|---|---|---|
 | 切换模型 | 改文件 + 重启进程 | 改文件 + 重启进程 | **会话内 `/model`，即切即用** |
 | 上下文 | 重启即丢 | 重启即丢 | **保留** |
-| 内置模型 | 手填各家端点/ID | 逐家录入 | **8 家 42 型号预配，别名即选** |
+| 内置模型 | 手填各家端点/ID | 逐家录入 | **8 家 44 型号预配，别名即选** |
 | Key 体检 | 出错才知道 | — | **`ccmr doctor` 逐模型微型真请求** |
 | 401 报错 | 一句透传原文 | — | **原文保留 + 指明改哪个变量/去哪申请** |
 | 用量统计 | — | — | **按模型请求数/错误/tokens** |
@@ -230,7 +230,9 @@ ccmr claude --print --output-format json "你的问题"
 | `kimi-plan-for-coding` | `kimi-for-coding` | Kimi K2.7 Code（全档位） | Kimi Code 会员订阅 |
 | `kimi-plan-for-coding-highspeed` | `kimi-plan-highspeed` | Kimi K2.7 Code HighSpeed（Allegretto 及以上） | Kimi Code 会员订阅 |
 | `minimax-m3` | `minimax`, `minimax-cn`, `mm` | MiniMax M3 | MiniMax CN |
+| `minimax-m3.1-flash` | `minimax-flash`, `minimax-m3.1`, `mm-flash` | MiniMax M3.1 Flash（强制开启 thinking） | MiniMax CN |
 | `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax M3 | MiniMax Global |
+| `minimax-global-m3.1-flash` | `minimax-global-flash`, `minimax-global-m3.1`, `minimax-io-flash` | MiniMax M3.1 Flash（强制开启 thinking） | MiniMax Global |
 | `qwen3.8-max` | `qwen`, `tongyi`, `qwen3.8` | Qwen3.8 Max | 阿里云（按量付费） |
 | `qwen3.7-max` | `qwen-max`, `qwen3.7` | Qwen3.7 Max | 阿里云（按量付费） |
 | `qwen3.8-flash` | `qwen-flash` | Qwen3.8 Flash（多模态，支持图片/视频输入） | 阿里云（按量付费） |
@@ -267,6 +269,7 @@ ccmr claude --print --output-format json "你的问题"
 | Kimi K3 (Coding Plan `kimi-plan-k3-1m` / `kimi-plan-k3`) | 1M / 256K（按档位） | 1M / 128K |
 | Kimi K2.7 Code / HighSpeed (Coding Plan) | 256K | 32K |
 | MiniMax M3 (CN / Global) | 1M | 128K |
+| MiniMax M3.1 Flash (CN / Global) | 1M | 512K |
 | Qwen3.8 Max (按量付费 / Token Plan) | 1M | 64K |
 | Qwen3.7 Max (按量付费 / Token Plan) | 1M | 64K |
 | Qwen3.8 Flash (按量付费 / Token Plan) | 1M | 128K |
@@ -578,6 +581,15 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.23.0
+
+- **新增 MiniMax-M3.1-Flash**，国内版与国际版分别接入、各用各的 Key：
+  - 国内版 `minimax-m3.1-flash`（别名 `minimax-flash` / `minimax-m3.1` / `mm-flash`）：`api.minimaxi.com/anthropic`，`MINIMAX_API_KEY`
+  - 国际版 `minimax-global-m3.1-flash`（别名 `minimax-global-flash` / `minimax-global-m3.1` / `minimax-io-flash`）：`api.minimax.io/anthropic`，`MINIMAX_GLOBAL_API_KEY`
+- 参数：1M 上下文（官方文档）；最大输出 512K（官方文档未写明，取上游实测硬上限 `does not support max tokens > 524288`）
+- 该模型**强制开启 thinking**，传 `thinking: disabled` 会被上游返回 400；思考 token 计入 max_tokens
+- `minimax` / `minimax-global` 短名仍指向 M3，默认行为不变
 
 ### v1.22.0
 

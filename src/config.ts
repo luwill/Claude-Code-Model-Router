@@ -187,6 +187,12 @@ export const DEFAULT_CONFIG: RouterConfig = {
           max_tokens: 131072,
           context_window: 1048576,
         },
+        'm3.1-flash': {
+          display_name: 'MiniMax M3.1 Flash',
+          model_id: 'MiniMax-M3.1-Flash',
+          max_tokens: 524288,
+          context_window: 1000000,
+        },
       },
     },
     'minimax-global': {
@@ -206,6 +212,12 @@ export const DEFAULT_CONFIG: RouterConfig = {
           model_id: 'MiniMax-M3',
           max_tokens: 131072,
           context_window: 1048576,
+        },
+        'm3.1-flash': {
+          display_name: 'MiniMax M3.1 Flash (Global)',
+          model_id: 'MiniMax-M3.1-Flash',
+          max_tokens: 524288,
+          context_window: 1000000,
         },
       },
     },
@@ -626,6 +638,14 @@ export const DEFAULT_CONFIG: RouterConfig = {
     'minimax-io': 'minimax-global-m3',
     'minimax-global-m3': 'minimax-global-m3',
     mm: 'minimax-m3',
+    'minimax-flash': 'minimax-m3.1-flash',
+    'minimax-m3.1': 'minimax-m3.1-flash',
+    'minimax-m3.1-flash': 'minimax-m3.1-flash',
+    'mm-flash': 'minimax-m3.1-flash',
+    'minimax-global-flash': 'minimax-global-m3.1-flash',
+    'minimax-global-m3.1': 'minimax-global-m3.1-flash',
+    'minimax-global-m3.1-flash': 'minimax-global-m3.1-flash',
+    'minimax-io-flash': 'minimax-global-m3.1-flash',
     qwen: 'qwen3.8-max',
     tongyi: 'qwen3.8-max',
     'qwen3.8': 'qwen3.8-max',
@@ -1397,6 +1417,11 @@ providers:
         model_id: MiniMax-M3
         max_tokens: 131072
         context_window: 1048576
+      "m3.1-flash":
+        display_name: "MiniMax M3.1 Flash"
+        model_id: MiniMax-M3.1-Flash
+        max_tokens: 524288
+        context_window: 1000000
 
   minimax-global:
     display_name: MiniMax Global
@@ -1413,6 +1438,11 @@ providers:
         model_id: MiniMax-M3
         max_tokens: 131072
         context_window: 1048576
+      "m3.1-flash":
+        display_name: "MiniMax M3.1 Flash (Global)"
+        model_id: MiniMax-M3.1-Flash
+        max_tokens: 524288
+        context_window: 1000000
 
   qwen:
     display_name: Qwen
@@ -1747,6 +1777,14 @@ aliases:
   minimax-io: minimax-global-m3
   minimax-global-m3: minimax-global-m3
   mm: minimax-m3
+  minimax-flash: minimax-m3.1-flash
+  minimax-m3.1: minimax-m3.1-flash
+  minimax-m3.1-flash: minimax-m3.1-flash
+  mm-flash: minimax-m3.1-flash
+  minimax-global-flash: minimax-global-m3.1-flash
+  minimax-global-m3.1: minimax-global-m3.1-flash
+  minimax-global-m3.1-flash: minimax-global-m3.1-flash
+  minimax-io-flash: minimax-global-m3.1-flash
   qwen: qwen3.8-max
   tongyi: qwen3.8-max
   qwen3.8: qwen3.8-max

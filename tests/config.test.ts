@@ -593,6 +593,44 @@ describe('Qwen3.8 Flash: multimodal flash tier on pay-go and Token Plan', () => 
   });
 });
 
+describe('MiniMax-M3.1-Flash: flash tier on both CN and Global providers', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('adds m3.1-flash to the CN provider without moving the default', () => {
+    // platform.minimax.cn/docs/api-reference/text-anthropic-api: id
+    // MiniMax-M3.1-Flash, 1,000,000 context. Max output is undocumented; the
+    // CN upstream rejects max_tokens > 524288 ("does not support max tokens
+    // > 524288 (2013)", probed 2026-10-19).
+    const model = config.models['minimax-m3.1-flash'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('MiniMax-M3.1-Flash');
+    expect(model.max_tokens).toBe(524288);
+    expect(model.context_window).toBe(1000000);
+    expect(model.base_url).toBe('https://api.minimaxi.com/anthropic');
+    expect(model.api_key_env).toBe('MINIMAX_API_KEY');
+    expect(manager.resolveModelName('minimax-flash')).toBe('minimax-m3.1-flash');
+    expect(manager.resolveModelName('minimax-m3.1')).toBe('minimax-m3.1-flash');
+    expect(manager.resolveModelName('mm-flash')).toBe('minimax-m3.1-flash');
+    expect(manager.resolveModelName('minimax')).toBe('minimax-m3');
+  });
+
+  it('adds m3.1-flash to the Global provider with its own key', () => {
+    // platform.minimax.io/docs/api-reference/text-anthropic-api: same id and
+    // context on api.minimax.io/anthropic.
+    const model = config.models['minimax-global-m3.1-flash'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('MiniMax-M3.1-Flash');
+    expect(model.max_tokens).toBe(524288);
+    expect(model.context_window).toBe(1000000);
+    expect(model.base_url).toBe('https://api.minimax.io/anthropic');
+    expect(model.api_key_env).toBe('MINIMAX_GLOBAL_API_KEY');
+    expect(manager.resolveModelName('minimax-global-flash')).toBe('minimax-global-m3.1-flash');
+    expect(manager.resolveModelName('minimax-io-flash')).toBe('minimax-global-m3.1-flash');
+    expect(manager.resolveModelName('minimax-global')).toBe('minimax-global-m3');
+  });
+});
+
 describe('ConfigManager: user config merging', () => {
   it('fails closed when an explicit config path does not exist', () => {
     expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(

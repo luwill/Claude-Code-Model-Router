@@ -8,7 +8,7 @@
 
 **Switch between 40+ third-party models mid-conversation — no restarts, no config editing.**
 
-ccmr is a lightweight gateway that runs on your machine: Claude Code talks to it, and it forwards every request verbatim to whichever model you pick — DeepSeek, Kimi, Qwen, GLM, MiniMax, Step, MiMo or Doubao Seed, 42 models across 8 vendors, all prewired. Type `/model kimi` in a session and the very next message runs on Kimi. When a key dies, the error tells you exactly which env var to fix, where to get a new key, and the command that verifies it. Config edits hot-reload in about a second. Loopback-only by default; everything stays local.
+ccmr is a lightweight gateway that runs on your machine: Claude Code talks to it, and it forwards every request verbatim to whichever model you pick — DeepSeek, Kimi, Qwen, GLM, MiniMax, Step, MiMo or Doubao Seed, 44 models across 8 vendors, all prewired. Type `/model kimi` in a session and the very next message runs on Kimi. When a key dies, the error tells you exactly which env var to fix, where to get a new key, and the command that verifies it. Config edits hot-reload in about a second. Loopback-only by default; everything stays local.
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -129,7 +129,7 @@ ccmr claude --permission-mode acceptEdits --ide
 
 ## Supported models
 
-42 models across 8 vendors; short names and version aliases both work everywhere (`/model`, `ccmr use`, `--model`).
+44 models across 8 vendors; short names and version aliases both work everywhere (`/model`, `ccmr use`, `--model`).
 
 | Model | Aliases | Provider |
 |--------|----------|--------|
@@ -138,8 +138,8 @@ ccmr claude --permission-mode acceptEdits --ide
 | `kimi-k3` / `kimi-k2.6` / `kimi-k2.7-code` / `kimi-k2.7-code-highspeed` | `kimi`, `k3`, `moonshot`, `kimi-code`, … | Moonshot (global) |
 | `kimi-cn-*` (same four) | `kimi-cn`, `moonshot-cn`, … | Moonshot (CN open platform) |
 | `kimi-plan-k3-1m` / `kimi-plan-k3` / `kimi-plan-for-coding` / `kimi-plan-for-coding-highspeed` | `kimi-plan`, `kimi-for-coding` | Kimi Code membership (coding plans) |
-| `minimax-m3` | `minimax`, `mm` | MiniMax CN |
-| `minimax-global-m3` | `minimax-global`, `minimax-io` | MiniMax Global |
+| `minimax-m3` / `minimax-m3.1-flash` | `minimax`, `mm`, `minimax-flash`, `mm-flash` | MiniMax CN |
+| `minimax-global-m3` / `minimax-global-m3.1-flash` | `minimax-global`, `minimax-io`, `minimax-global-flash` | MiniMax Global |
 | `qwen3.8-max` / `qwen3.7-max` / `qwen3.8-flash` | `qwen`, `tongyi`, `qwen-max`, `qwen-flash` | Alibaba Cloud (pay-as-you-go) |
 | `qwen-plan-3.8-max` / `qwen-plan-3.7-max` / `qwen-plan-3.8-flash` | `qwen-plan`, `qwen-plan-max`, … | Qwen Token Plan (subscription) |
 | `glm-plan-5.3` / `glm-plan-5.2` / `glm-plan-5.3-flash` | `glm`, `zhipu`, `chatglm`, `glm-flash` | Zhipu GLM Coding Plan (subscription) |
@@ -269,6 +269,10 @@ npm test        # vitest, fast and offline
 ```
 
 ## Changelog
+
+### v1.23.0 — MiniMax M3.1 Flash
+
+- **MiniMax-M3.1-Flash** on both MiniMax providers: `minimax-m3.1-flash` (CN, `MINIMAX_API_KEY`, aliases `minimax-flash` / `mm-flash`) and `minimax-global-m3.1-flash` (Global, `MINIMAX_GLOBAL_API_KEY`, alias `minimax-global-flash`). 1M context, 512K max output (the upstream's own cap). Thinking is always on for this model; `minimax` / `minimax-global` still resolve to M3.
 
 ### v1.22.0 — usability deep-dive
 
