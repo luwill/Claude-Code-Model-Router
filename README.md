@@ -8,7 +8,7 @@
 
 **Switch between 40+ third-party models mid-conversation — no restarts, no config editing.**
 
-ccmr is a lightweight gateway that runs on your machine: Claude Code talks to it, and it forwards every request verbatim to whichever model you pick — DeepSeek, Kimi, Qwen, GLM, MiniMax, Step, MiMo or Doubao Seed, 44 models across 8 vendors, all prewired. Type `/model kimi` in a session and the very next message runs on Kimi. When a key dies, the error tells you exactly which env var to fix, where to get a new key, and the command that verifies it. Config edits hot-reload in about a second. Loopback-only by default; everything stays local.
+ccmr is a lightweight gateway that runs on your machine: Claude Code talks to it, and it forwards every request verbatim to whichever model you pick — DeepSeek, Kimi, Qwen, GLM, MiniMax, Step, MiMo, Doubao Seed or LongCat, 45 models across 9 vendors, all prewired. Type `/model kimi` in a session and the very next message runs on Kimi. When a key dies, the error tells you exactly which env var to fix, where to get a new key, and the command that verifies it. Config edits hot-reload in about a second. Loopback-only by default; everything stays local.
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -38,7 +38,7 @@ For most setups, switching models means editing env vars or config files and res
 |---|---|---|---|
 | Switching models | Edit file + restart | Edit file + restart | **`/model` in-session, instant** |
 | Conversation context | Lost on restart | Lost on restart | **Preserved** |
-| Built-in models | Fill in per-vendor endpoints/IDs | Enter per vendor | **42 models / 8 vendors prewired, alias to pick** |
+| Built-in models | Fill in per-vendor endpoints/IDs | Enter per vendor | **45 models / 9 vendors prewired, alias to pick** |
 | Key health | You find out on failure | — | **`ccmr doctor`: one tiny real request per model** |
 | On a 401 | One raw passthrough line | — | **Vendor text kept + which var, which console, which command** |
 | Usage stats | — | — | **Per-model requests / errors / tokens** |
@@ -129,7 +129,7 @@ ccmr claude --permission-mode acceptEdits --ide
 
 ## Supported models
 
-44 models across 8 vendors; short names and version aliases both work everywhere (`/model`, `ccmr use`, `--model`).
+45 models across 9 vendors; short names and version aliases both work everywhere (`/model`, `ccmr use`, `--model`).
 
 | Model | Aliases | Provider |
 |--------|----------|--------|
@@ -151,6 +151,7 @@ ccmr claude --permission-mode acceptEdits --ide
 | `mimo-payg-v2.5-pro` | `mimo-payg` | MiMo pay-as-you-go |
 | `seed-2.1-pro` / `seed-2.1-turbo` | `seed`, `doubao`, `seed-turbo` | Volcengine Ark (pay-as-you-go) |
 | `seed-plan-2.1-pro` / `seed-plan-2.1-turbo` | `seed-plan`, `doubao-plan` | Volcengine Ark (Agent Plan) |
+| `longcat-2.5` | `longcat`, `meituan` | Meituan LongCat API platform |
 
 Run `ccmr models` for the authoritative list with per-model key status, or see the [Chinese README](README.zh-CN.md) for the full alias table and the context-window/max-output matrix.
 
@@ -183,6 +184,7 @@ MIMO_API_KEY=tp-xxx        # MiMo Token Plan (SGP)
 MIMO_TOKEN_CN_API_KEY=tp-xxx   # MiMo Token Plan (CN cluster)
 MIMO_TOKEN_AMS_API_KEY=tp-xxx  # MiMo Token Plan (AMS cluster)
 MIMO_PAYG_API_KEY=sk-xxx   # https://platform.xiaomimimo.com/
+LONGCAT_API_KEY=xxx        # https://longcat.chat/platform/
 
 GATEWAY_PORT=8080          # optional overrides
 REQUEST_TIMEOUT=300
@@ -269,6 +271,10 @@ npm test        # vitest, fast and offline
 ```
 
 ## Changelog
+
+### v1.24.0 — LongCat 2.5
+
+- **LongCat-2.5** (Meituan) as a new provider: `longcat-2.5` (aliases `longcat` / `meituan`), Anthropic endpoint `https://api.longcat.chat/anthropic`, Bearer auth, new key `LONGCAT_API_KEY`. 1M context (1,048,576), 256K max output (262,144), as reported by the platform's own `/v1/models`.
 
 ### v1.23.0 — MiniMax M3.1 Flash
 

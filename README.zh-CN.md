@@ -8,7 +8,7 @@
 
 **会话中一句话切换 40+ 第三方模型——不用重启，不用改配置文件。**
 
-ccmr 是一个跑在本机的轻量 API 网关：Claude Code 连它，它把请求原样转发给你选的模型（DeepSeek、Kimi、Qwen、GLM、MiniMax、Step、MiMo、豆包 Seed，8 家 44 个型号全部预配好）。在会话里 `/model kimi` 回车即切；Key 失效时错误信息直接告诉你「改哪个变量、去哪申请、跑什么命令验证」；配置和 Key 改完约 1 秒热重载。默认只监听 127.0.0.1，全本地。
+ccmr 是一个跑在本机的轻量 API 网关：Claude Code 连它，它把请求原样转发给你选的模型（DeepSeek、Kimi、Qwen、GLM、MiniMax、Step、MiMo、豆包 Seed、LongCat，9 家 45 个型号全部预配好）。在会话里 `/model kimi` 回车即切；Key 失效时错误信息直接告诉你「改哪个变量、去哪申请、跑什么命令验证」；配置和 Key 改完约 1 秒热重载。默认只监听 127.0.0.1，全本地。
 
 **[English](README.md)** · 简体中文
 
@@ -18,7 +18,7 @@ $ npx claude-code-model-router@latest setup
 Providers (key status from environment and .env):
    1. DeepSeek        DEEPSEEK_API_KEY        [no key]
    2. Kimi            KIMI_API_KEY            [no key]
-   ...（18 家，标注控制台地址）
+   ...（19 家，标注控制台地址）
 Configure which providers? 1
 Paste DEEPSEEK_API_KEY for DeepSeek (get one: https://platform.deepseek.com/): ********
 Verify keys now with one tiny request per provider? [y/N] y
@@ -38,7 +38,7 @@ $ ccmr claude        # 进入 Claude Code，会话内任意切：
 |---|---|---|---|
 | 切换模型 | 改文件 + 重启进程 | 改文件 + 重启进程 | **会话内 `/model`，即切即用** |
 | 上下文 | 重启即丢 | 重启即丢 | **保留** |
-| 内置模型 | 手填各家端点/ID | 逐家录入 | **8 家 44 型号预配，别名即选** |
+| 内置模型 | 手填各家端点/ID | 逐家录入 | **9 家 45 型号预配，别名即选** |
 | Key 体检 | 出错才知道 | — | **`ccmr doctor` 逐模型微型真请求** |
 | 401 报错 | 一句透传原文 | — | **原文保留 + 指明改哪个变量/去哪申请** |
 | 用量统计 | — | — | **按模型请求数/错误/tokens** |
@@ -256,6 +256,7 @@ ccmr claude --print --output-format json "你的问题"
 | `seed-2.1-turbo` | `seed-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（按量付费） |
 | `seed-plan-2.1-pro` | `seed-plan`, `seed-plan-pro`, `doubao-plan` | Doubao Seed 2.1 Pro | 火山方舟（Agent Plan 订阅） |
 | `seed-plan-2.1-turbo` | `seed-plan-turbo` | Doubao Seed 2.1 Turbo | 火山方舟（Agent Plan 订阅） |
+| `longcat-2.5` | `longcat`, `meituan` | LongCat 2.5 | 美团 LongCat 开放平台 |
 
 ### 模型参数
 
@@ -279,6 +280,7 @@ ccmr claude --print --output-format json "你的问题"
 | MiMo V2.5 Pro | 1M | 128K |
 | MiMo V2.5 | 1M | 128K |
 | Doubao Seed 2.1 Pro / Turbo (按量付费 / Agent Plan) | 256K | 256K |
+| LongCat 2.5 | 1M | 256K |
 
 ### 内置 Web Search 支持
 
@@ -327,6 +329,7 @@ MIMO_API_KEY=tp-xxx        # MiMo Token Plan，默认 SGP 集群
 MIMO_TOKEN_CN_API_KEY=tp-xxx  # MiMo Token Plan CN 集群
 MIMO_TOKEN_AMS_API_KEY=tp-xxx # MiMo Token Plan AMS 集群
 MIMO_PAYG_API_KEY=sk-xxx   # MiMo Pay-as-you-go: https://platform.xiaomimimo.com/
+LONGCAT_API_KEY=xxx        # LongCat 美团开放平台: https://longcat.chat/platform/
 
 # 可选网关设置
 GATEWAY_PORT=8080
@@ -464,6 +467,7 @@ npx claude-code-model-router claude
 /model seed-plan  # 切换到 Doubao Seed 2.1 Pro（火山方舟 Agent Plan 订阅）
 /model step       # 切换到 Step 5 Preview（按量付费）
 /model step-plan  # 切换到 Step 5 Preview（Step Plan 订阅）
+/model longcat    # 切换到 LongCat 2.5（美团，1M 上下文）
 /model kimi       # 切换到 Kimi K2.6
 /model kimi-code  # 切换到 Kimi K2.7 Code（编程专用）
 /model kimi-highspeed # 切换到 Kimi K2.7 Code HighSpeed（约 6 倍速）
@@ -499,6 +503,7 @@ npx claude-code-model-router claude
 /model seed-2.1-turbo            # Doubao Seed 2.1 Turbo（按量付费）
 /model seed-plan-2.1-pro         # Doubao Seed 2.1 Pro（Agent Plan 订阅）
 /model seed-plan-2.1-turbo       # Doubao Seed 2.1 Turbo（Agent Plan 订阅）
+/model longcat-2.5               # LongCat 2.5
 /model mimo-v2.5-pro             # MiMo V2.5 Pro
 /model mimo-v2.5                 # MiMo V2.5
 /model mimo-token-ams-v2.5-pro   # MiMo V2.5 Pro Token Plan AMS
@@ -581,6 +586,13 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.24.0
+
+- **新增 LongCat-2.5**（美团 LongCat 开放平台），新增供应商 `longcat`：
+  - 模型 `longcat-2.5`（别名 `longcat` / `meituan`），Anthropic 接入点 `https://api.longcat.chat/anthropic`，Bearer 鉴权，需配置 `LONGCAT_API_KEY`
+  - 参数：1M 上下文（1048576）、最大输出 256K（262144），取自平台 `/v1/models` 接口返回值；`ccmr claude` 启动时自动挂 `[1m]` 后缀
+  - 实测：`ccmr doctor longcat` 通过；Claude Code 形态请求（adaptive thinking + tools + 流式）正常返回 `tool_use`
 
 ### v1.23.0
 

@@ -583,6 +583,27 @@ export const DEFAULT_CONFIG: RouterConfig = {
         },
       },
     },
+    longcat: {
+      display_name: 'LongCat (Meituan)',
+      provider: 'longcat',
+      // LongCat API 开放平台的 Anthropic 接入点（同一 Key 也可用于 OpenAI 协议）。
+      base_url: 'https://api.longcat.chat/anthropic',
+      api_key_env: 'LONGCAT_API_KEY',
+      console_url: 'https://longcat.chat/platform/',
+      auth_header: 'Authorization',
+      auth_type: 'bearer',
+      supports_streaming: true,
+      supports_tools: true,
+      default_variant: '2.5',
+      variants: {
+        '2.5': {
+          display_name: 'LongCat 2.5',
+          model_id: 'LongCat-2.5',
+          max_tokens: 262144,
+          context_window: 1048576,
+        },
+      },
+    },
   },
   models: {},
   aliases: {
@@ -725,6 +746,9 @@ export const DEFAULT_CONFIG: RouterConfig = {
     'seed-plan-turbo': 'seed-plan-2.1-turbo',
     'seed-plan-2.1-turbo': 'seed-plan-2.1-turbo',
     'doubao-plan': 'seed-plan-2.1-pro',
+    longcat: 'longcat-2.5',
+    'longcat-2.5': 'longcat-2.5',
+    meituan: 'longcat-2.5',
   },
   gateway: {
     host: '127.0.0.1',
@@ -1726,6 +1750,23 @@ providers:
         max_tokens: 262144
         context_window: 262144
 
+  longcat:
+    display_name: LongCat (Meituan)
+    provider: longcat
+    # LongCat API 开放平台 Anthropic 接入点
+    base_url: https://api.longcat.chat/anthropic
+    api_key_env: LONGCAT_API_KEY
+    console_url: https://longcat.chat/platform/
+    auth_header: Authorization
+    auth_type: bearer
+    default_variant: "2.5"
+    variants:
+      "2.5":
+        display_name: "LongCat 2.5"
+        model_id: LongCat-2.5
+        max_tokens: 262144
+        context_window: 1048576
+
 aliases:
   deepseek: deepseek-v4-pro
   deepseek-v4: deepseek-v4-pro
@@ -1864,6 +1905,9 @@ aliases:
   seed-plan-turbo: seed-plan-2.1-turbo
   seed-plan-2.1-turbo: seed-plan-2.1-turbo
   doubao-plan: seed-plan-2.1-pro
+  longcat: longcat-2.5
+  longcat-2.5: longcat-2.5
+  meituan: longcat-2.5
 
 gateway:
   port: 8080
@@ -1931,6 +1975,10 @@ MIMO_TOKEN_AMS_API_KEY=
 
 # MiMo Pay-as-you-go (sk-*) - https://platform.xiaomimimo.com/
 MIMO_PAYG_API_KEY=
+
+# LongCat (Meituan) - https://longcat.chat/platform/
+# Anthropic 接入点 https://api.longcat.chat/anthropic，模型 LongCat-2.5（1M 上下文）。
+LONGCAT_API_KEY=
 
 # Inbound auth (optional but REQUIRED if you bind to a non-loopback host).
 # When set, callers must send this token as "x-api-key" or "Authorization: Bearer <token>".

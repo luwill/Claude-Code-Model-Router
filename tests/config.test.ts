@@ -631,6 +631,29 @@ describe('MiniMax-M3.1-Flash: flash tier on both CN and Global providers', () =>
   });
 });
 
+describe('LongCat-2.5: Meituan LongCat API platform', () => {
+  const manager = new ConfigManager(null);
+  const config = manager.getConfig();
+
+  it('routes longcat-2.5 to the Anthropic endpoint with its own key', () => {
+    // longcat.chat/platform/docs: Anthropic endpoint
+    // https://api.longcat.chat/anthropic, Bearer auth. GET /openai/v1/models
+    // (probed 2026-11-05) lists LongCat-2.5 with context_window 1048576 and
+    // max_output_tokens 262144.
+    const model = config.models['longcat-2.5'];
+    expect(model).toBeDefined();
+    expect(model.model_id).toBe('LongCat-2.5');
+    expect(model.max_tokens).toBe(262144);
+    expect(model.context_window).toBe(1048576);
+    expect(model.base_url).toBe('https://api.longcat.chat/anthropic');
+    expect(model.api_key_env).toBe('LONGCAT_API_KEY');
+    expect(model.auth_header).toBe('Authorization');
+    expect(model.auth_type).toBe('bearer');
+    expect(manager.resolveModelName('longcat')).toBe('longcat-2.5');
+    expect(manager.resolveModelName('meituan')).toBe('longcat-2.5');
+  });
+});
+
 describe('ConfigManager: user config merging', () => {
   it('fails closed when an explicit config path does not exist', () => {
     expect(() => new ConfigManager('/definitely-missing/ccmr-models.yaml')).toThrow(
