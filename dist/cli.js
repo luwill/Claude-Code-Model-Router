@@ -22,6 +22,7 @@ const paths_js_1 = require("./paths.js");
 const server_js_1 = require("./server.js");
 const version_js_1 = require("./version.js");
 const model_suffix_js_1 = require("./model-suffix.js");
+const claude_args_js_1 = require("./claude-args.js");
 const update_js_1 = require("./update.js");
 commander_1.program
     .name('ccmr')
@@ -576,66 +577,10 @@ commander_1.program
         ANTHROPIC_DEFAULT_OPUS_MODEL: launchModelName,
         ANTHROPIC_DEFAULT_HAIKU_MODEL: launchModelName,
     };
-    // Build Claude Code arguments
-    const claudeArgs = [];
-    // Add prompt if provided
-    if (prompt) {
-        claudeArgs.push(prompt);
-    }
-    // Session options
-    if (options.continue)
-        claudeArgs.push('--continue');
-    if (options.resume !== undefined) {
-        if (options.resume === true) {
-            claudeArgs.push('--resume');
-        }
-        else {
-            claudeArgs.push('--resume', options.resume);
-        }
-    }
-    if (options.forkSession)
-        claudeArgs.push('--fork-session');
-    // Permission options
-    if (options.dangerouslySkipPermissions)
-        claudeArgs.push('--dangerously-skip-permissions');
-    if (options.permissionMode)
-        claudeArgs.push('--permission-mode', options.permissionMode);
-    // Output options
-    if (options.print)
-        claudeArgs.push('--print');
-    if (options.outputFormat)
-        claudeArgs.push('--output-format', options.outputFormat);
-    if (options.inputFormat)
-        claudeArgs.push('--input-format', options.inputFormat);
-    // Tool options
-    if (options.allowedTools)
-        claudeArgs.push('--allowed-tools', ...options.allowedTools);
-    if (options.disallowedTools)
-        claudeArgs.push('--disallowed-tools', ...options.disallowedTools);
-    // Other options
-    if (options.model)
-        claudeArgs.push('--model', options.model);
-    if (options.systemPrompt)
-        claudeArgs.push('--system-prompt', options.systemPrompt);
-    if (options.appendSystemPrompt)
-        claudeArgs.push('--append-system-prompt', options.appendSystemPrompt);
-    if (options.addDir)
-        claudeArgs.push('--add-dir', ...options.addDir);
-    if (options.debug !== undefined) {
-        if (options.debug === true) {
-            claudeArgs.push('--debug');
-        }
-        else {
-            claudeArgs.push('--debug', options.debug);
-        }
-    }
-    if (options.verbose)
-        claudeArgs.push('--verbose');
-    if (options.ide)
-        claudeArgs.push('--ide');
-    // Pass through any unknown options (collected by allowUnknownOption)
+    // Build Claude Code arguments (pass through any unknown options collected
+    // by allowUnknownOption)
     const unknownArgs = command.args.slice(prompt ? 1 : 0);
-    claudeArgs.push(...unknownArgs);
+    const claudeArgs = (0, claude_args_js_1.buildClaudeArgs)(prompt, options, launchModelName, unknownArgs);
     // Show startup info (unless in print mode)
     if (!options.print) {
         console.log('');
