@@ -2,6 +2,11 @@
  * Type definitions for Claude Code Model Router
  */
 export type AuthType = 'api_key' | 'bearer';
+/**
+ * Wire protocol the upstream speaks. `anthropic` (default) forwards Messages
+ * as-is; `openai_chat` translates to/from OpenAI Chat Completions.
+ */
+export type ApiFormat = 'anthropic' | 'openai_chat';
 export interface ModelVariantConfig {
     model_key?: string;
     display_name: string;
@@ -22,6 +27,7 @@ export interface ProviderConfig {
     console_url?: string;
     auth_header?: string;
     auth_type?: AuthType;
+    api_format?: ApiFormat;
     supports_streaming?: boolean;
     supports_tools?: boolean;
     default_variant?: string;
@@ -37,6 +43,7 @@ export interface ModelConfig extends ModelVariantConfig {
     console_url?: string;
     auth_header?: string;
     auth_type?: AuthType;
+    api_format?: ApiFormat;
     provider_key?: string;
     variant_key?: string;
     provider_display_name?: string;

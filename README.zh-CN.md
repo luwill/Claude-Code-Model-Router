@@ -46,7 +46,7 @@ $ ccmr claude        # 进入 Claude Code，会话内任意切：
 | 热重载 | — | — | **models.yaml/.env 改动约 1 秒生效** |
 | 官方订阅共存 | — | 常互相覆盖 | **独立配置目录，`claude` 与 `ccmr claude` 互不干扰** |
 
-> 诚实说明：ccmr 是 Anthropic 协议**直通**网关，不做协议转换——只接各家官方 Anthropic 兼容端点（智谱国内按量付费只有 OpenAI 协议，故仅支持其 Coding Plan 订阅）。流式、工具调用、思考模式原样转发，不解析不改写你的上下文。
+> 诚实说明：内置模型全部走各家官方 Anthropic 兼容端点，**直通**转发——流式、工具调用、思考模式原样转发，不解析不改写你的上下文。只提供 OpenAI 协议的厂商（如智谱国内按量付费），可在自定义 provider 上声明 `api_format: openai_chat` 开启协议转换（见 [OpenAI 兼容接口](#openai-兼容接口)）。
 
 ## 快速开始
 
@@ -342,7 +342,7 @@ CCMR_REQUIRED_AUTH_TOKEN=  # 非回环监听时必须设置
 
 MiMo Token Plan 的 Base URL 与购买套餐所在集群绑定。默认 `mimo` 使用 SGP 集群；如果订阅页显示 CN 或 AMS 集群，请分别配置 `MIMO_TOKEN_CN_API_KEY` / `MIMO_TOKEN_AMS_API_KEY`，并使用 `mimo-token-cn` 或 `mimo-token-ams`。`tp-*` Token Plan Key 不能用于按量付费接口，`sk-*` 按量付费 Key 也不能用于 Token Plan 接口。
 
-智谱 GLM 国内**仅支持 Coding Plan 订阅**：`open.bigmodel.cn/api/anthropic` 是智谱国内唯一的 Anthropic 兼容端点，且被 Coding Plan 门控——按量付费 key / tokens 资源包调用会返回 `429 [1309] 套餐已到期/未订阅`，官方 FAQ 明确资源包在该通道不可用、套餐额度耗尽也不会转按量计费。国内按量付费只提供 OpenAI 协议（`/api/paas/v4`），ccmr 作为 Anthropic 协议直通网关暂无法接入，待智谱开通按量 Anthropic 端点后再支持。
+智谱 GLM 国内**仅支持 Coding Plan 订阅**：`open.bigmodel.cn/api/anthropic` 是智谱国内唯一的 Anthropic 兼容端点，且被 Coding Plan 门控——按量付费 key / tokens 资源包调用会返回 `429 [1309] 套餐已到期/未订阅`，官方 FAQ 明确资源包在该通道不可用、套餐额度耗尽也不会转按量计费。国内按量付费只提供 OpenAI 协议（`/api/paas/v4`），内置配置未收录；如需使用，可按下文 [OpenAI 兼容接口](#openai-兼容接口) 自定义 provider 接入。
 
 ### 配置文件 (models.yaml)
 
@@ -380,6 +380,30 @@ providers:
         model_id: deepseek-v4-pro
         fallback: [kimi-k2.6, glm-5.2]  # 依次降级
 ```
+
+#### OpenAI 兼容接口
+
+任何提供 OpenAI Chat Completions（`/chat/completions`）的厂商或中转，都能以自定义 provider 接入：声明 `api_format: openai_chat`，网关会在 Anthropic Messages 与 Chat Completions 之间双向转换（含流式）：
+
+```yaml
+providers:
+  glm-payg:                          # 例：智谱国内按量付费（仅 OpenAI 协议）
+    provider: zhipu-openai
+    base_url: https://open.bigmodel.cn/api/paas/v4   # 写到版本号为止，与 OpenAI SDK 惯例一致
+    api_key_env: GLM_PAYG_API_KEY
+    api_format: openai_chat          # 默认 anthropic（直通）
+    variants:
+      "5.3":
+        display_name: "GLM 5.3（按量）"
+        model_id: glm-5.3
+        max_tokens: 131072
+        context_window: 1000000
+```
+
+- 地址：`base_url` + `/chat/completions`；若 `base_url` 本身已以 `/chat/completions` 结尾则原样使用。鉴权默认 `Authorization: Bearer`（可用 `auth_header` / `auth_type` 覆盖）。
+- 转换内容：系统提示、文本、图片（base64 转 data URL）、`tool_use` ⇄ `tool_calls`、`tool_result` → `role: tool`、`tool_choice`、停止序列、`finish_reason` → `stop_reason`、用量（缓存命中拆到 `cache_read_input_tokens`）。模型输出的 `reasoning_content` 转成 thinking 块，并在后续轮次回传——DeepSeek / Kimi 思考模式下调用工具必须带上它。
+- 丢弃：Anthropic 专有字段（`metadata`、`thinking`、`cache_control` 等）。OpenAI o 系列 / gpt-5 及以上改用 `max_completion_tokens`，并按思考预算映射 `reasoning_effort`。
+- 这类模型的 `/v1/messages/count_tokens` 返回 404（Chat Completions 没有计数接口），Claude Code 会退回本地估算。
 
 ## 使用场景
 
@@ -586,6 +610,12 @@ Key 只配在某个项目目录的 `.env` 里时，网关是项目级的，换�
 DeepSeek Anthropic 兼容接口会忽略 `metadata` 字段，但某些 Claude Code 会话会携带包含特殊字符的 `metadata.user_id`，导致 DeepSeek 在请求校验阶段返回 400。路由器会在转发 DeepSeek 请求前移除该元数据，不影响上下文、工具调用或模型输出。
 
 ## 更新日志
+
+### v1.25.0
+
+- **新增 OpenAI 兼容接口支持**（`api_format: openai_chat`）：自定义 provider / 平铺 model 可直接对接任意 OpenAI Chat Completions 端点，网关负责请求、响应与 SSE 流的双向协议转换（思路移植自 cc-switch-cli），覆盖工具调用、图片、思考内容（`reasoning_content`）、含缓存命中的用量统计。内置模型不受影响，仍为直通转发
+  - 实测：用真实 Key 跑 Claude Code 形态的两轮会话（adaptive thinking + tools + 流式 + `[1m]`），DeepSeek、Kimi 国内、LongCat 三家的 OpenAI 端点均正常完成 `tool_use` → `tool_result` 往返
+  - 智谱国内按量付费（`/api/paas/v4`）因此可以自定义接入，配置示例见「OpenAI 兼容接口」一节
 
 ### v1.24.0
 

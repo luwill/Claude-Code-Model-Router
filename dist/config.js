@@ -907,6 +907,7 @@ class ConfigManager {
             console_url: provider.console_url,
             auth_header: provider.auth_header,
             auth_type: provider.auth_type,
+            api_format: provider.api_format,
             supports_streaming: variant.supports_streaming ?? provider.supports_streaming,
             supports_tools: variant.supports_tools ?? provider.supports_tools,
             max_tokens: variant.max_tokens,
@@ -989,6 +990,7 @@ class ConfigManager {
             if (provider.auth_type !== undefined && !['api_key', 'bearer'].includes(provider.auth_type)) {
                 throw new Error(`providers.${providerKey}.auth_type must be api_key or bearer`);
             }
+            this.validateApiFormat(provider.api_format, `providers.${providerKey}.api_format`);
             if (!this.isRecord(provider.variants) || Object.keys(provider.variants).length === 0) {
                 throw new Error(`providers.${providerKey}.variants must be a non-empty object`);
             }
@@ -1021,9 +1023,15 @@ class ConfigManager {
             if (model.console_url !== undefined) {
                 this.requireHttpUrl(model.console_url, `models.${modelKey}.console_url`);
             }
+            this.validateApiFormat(model.api_format, `models.${modelKey}.api_format`);
             this.validatePositiveInteger(model.max_tokens, `models.${modelKey}.max_tokens`);
             this.validatePositiveInteger(model.context_window, `models.${modelKey}.context_window`);
             this.validateFallback(model.fallback, `models.${modelKey}.fallback`);
+        }
+    }
+    validateApiFormat(value, field) {
+        if (value !== undefined && value !== 'anthropic' && value !== 'openai_chat') {
+            throw new Error(`${field} must be anthropic or openai_chat`);
         }
     }
     validatePositiveInteger(value, field) {
@@ -1703,6 +1711,22 @@ providers:
         max_tokens: 262144
         context_window: 1048576
 
+  # 接入任意 OpenAI 兼容接口（/chat/completions）：声明 api_format: openai_chat，
+  # 网关自动做 Anthropic <-> OpenAI 协议转换（含流式、工具调用、思考内容）。
+  # base_url 按 OpenAI SDK 惯例写到版本号为止（…/v1、…/api/paas/v4），
+  # 默认 Authorization: Bearer 鉴权。示例（取消注释后可用 /model my-openai-model）：
+  # my-openai:
+  #   provider: my-openai
+  #   base_url: https://api.example.com/v1
+  #   api_key_env: MY_OPENAI_API_KEY
+  #   api_format: openai_chat
+  #   variants:
+  #     model:
+  #       display_name: "My OpenAI-compatible model"
+  #       model_id: your-model-id
+  #       max_tokens: 32768
+  #       context_window: 128000
+
 aliases:
   deepseek: deepseek-v4-pro
   deepseek-v4: deepseek-v4-pro
@@ -1880,7 +1904,8 @@ QWEN_PLAN_API_KEY=
 
 # GLM Coding Plan (智谱订阅) - https://bigmodel.cn/claude-code
 # 仅限 Coding Plan 订阅 key；按量付费 key / tokens 资源包会 429 [1309]。
-# 国内按量付费只有 OpenAI 协议，无 Anthropic 通道，ccmr 暂无法接入。
+# 国内按量付费只有 OpenAI 协议（/api/paas/v4），可在 models.yaml 中以
+# api_format: openai_chat 自定义 provider 接入。
 GLM_PLAN_API_KEY=
 
 # GLM Global (Z.ai) - https://z.ai/model-api

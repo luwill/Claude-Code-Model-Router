@@ -46,7 +46,7 @@ For most setups, switching models means editing env vars or config files and res
 | Hot reload | — | — | **models.yaml/.env edits live in ~1s** |
 | Alongside your subscription | — | Often collide | **Isolated config dir; `claude` and `ccmr claude` never touch each other** |
 
-> Honest scope: ccmr is an Anthropic-protocol **passthrough** gateway — it does no protocol conversion and only talks to vendors' official Anthropic-compatible endpoints (that's why Zhipu CN is supported via its Coding Plan only: its pay-as-you-go side offers no Anthropic endpoint). Streaming, tool calls and thinking blocks are forwarded as-is; your context is never parsed or rewritten.
+> Honest scope: every built-in model goes through its vendor's official Anthropic-compatible endpoint, **passthrough** — streaming, tool calls and thinking blocks are forwarded as-is, your context is never parsed or rewritten. For vendors that only speak the OpenAI protocol, a custom provider can opt into translation with `api_format: openai_chat` (see [OpenAI-compatible endpoints](#openai-compatible-endpoints)).
 
 ## Quick start
 
@@ -219,6 +219,30 @@ providers:
         fallback: [kimi-k2.6, glm-plan-5.2]
 ```
 
+### OpenAI-compatible endpoints
+
+Any vendor or relay that speaks OpenAI Chat Completions (`/chat/completions`) can be added as a custom provider with `api_format: openai_chat`. The gateway translates Anthropic Messages ⇄ Chat Completions both ways, streaming included:
+
+```yaml
+providers:
+  glm-payg:                          # e.g. Zhipu CN pay-as-you-go (OpenAI protocol only)
+    provider: zhipu-openai
+    base_url: https://open.bigmodel.cn/api/paas/v4   # up to the version segment, OpenAI SDK style
+    api_key_env: GLM_PAYG_API_KEY
+    api_format: openai_chat          # default: anthropic (passthrough)
+    variants:
+      "5.3":
+        display_name: "GLM 5.3 (pay-as-you-go)"
+        model_id: glm-5.3
+        max_tokens: 131072
+        context_window: 1000000
+```
+
+- URL: `base_url` + `/chat/completions`; a `base_url` already ending in `/chat/completions` is used verbatim. Auth defaults to `Authorization: Bearer` (override with `auth_header` / `auth_type`).
+- Mapped: system prompt, text, images (base64 → data URL), `tool_use` ⇄ `tool_calls`, `tool_result` → `role: tool`, `tool_choice`, stop sequences, `finish_reason` → `stop_reason`, usage (cache hits split into `cache_read_input_tokens`). Reasoning output (`reasoning_content`) becomes thinking blocks and is echoed back on later turns, which DeepSeek / Kimi thinking mode requires for tool calls.
+- Dropped: Anthropic-only fields (`metadata`, `thinking`, `cache_control`, …). OpenAI o-series / gpt-5+ get `max_completion_tokens` and a `reasoning_effort` derived from the thinking budget.
+- `/v1/messages/count_tokens` returns 404 for these models (Chat Completions has no counting endpoint); Claude Code falls back to its own estimate.
+
 ## Two modes, zero interference
 
 ```
@@ -271,6 +295,11 @@ npm test        # vitest, fast and offline
 ```
 
 ## Changelog
+
+### v1.25.0 — OpenAI-compatible endpoints
+
+- **`api_format: openai_chat`**: a provider (or flat model) can now target any OpenAI Chat Completions endpoint; the gateway translates requests, responses and SSE streams to and from Anthropic Messages (approach ported from cc-switch-cli). Covers tool calls, images, thinking (`reasoning_content`), usage with cache hits. Built-in models are unchanged and stay on passthrough.
+- Verified with real keys through a Claude-Code-shaped two-turn session (adaptive thinking + tools + streaming + `[1m]`): DeepSeek, Kimi CN, LongCat OpenAI endpoints.
 
 ### v1.24.0 — LongCat 2.5
 

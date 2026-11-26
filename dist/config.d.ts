@@ -22,6 +22,7 @@ export declare class ConfigManager {
     private requireString;
     private validateFallback;
     private validateConfigShape;
+    private validateApiFormat;
     private validatePositiveInteger;
     private requireHttpUrl;
     private applyGatewayEnvOverrides;

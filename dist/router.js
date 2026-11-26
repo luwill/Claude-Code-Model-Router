@@ -5,6 +5,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelRouter = exports.RouterError = void 0;
 const logging_js_1 = require("./logging.js");
+const openai_chat_js_1 = require("./openai-chat.js");
+const openai_chat_stream_js_1 = require("./openai-chat-stream.js");
 class RouterError extends Error {
     statusCode;
     errorType;
@@ -54,6 +56,9 @@ function consoleUrlClause(config) {
 function keyFixHint(name, config) {
     return (`Check ${config.api_key_env} in .env${consoleUrlClause(config)}, ` +
         `then verify with: ccmr doctor ${name}`);
+}
+function isOpenAIChat(config) {
+    return config.api_format === 'openai_chat';
 }
 function linkAbortSignal(controller, signal) {
     if (!signal) {
@@ -117,7 +122,8 @@ class ModelRouter {
         return chain;
     }
     buildHeaders(route, originalHeaders) {
-        const authHeader = route.config.auth_header || 'x-api-key';
+        // OpenAI-compatible endpoints authenticate with a Bearer token by convention.
+        const authHeader = route.config.auth_header || (isOpenAIChat(route.config) ? 'Authorization' : 'x-api-key');
         const authType = route.config.auth_type || (authHeader.toLowerCase() === 'authorization' ? 'bearer' : 'api_key');
         const authValue = authType === 'bearer' ? `Bearer ${route.apiKey}` : route.apiKey;
         const headers = {
@@ -133,6 +139,15 @@ class ModelRouter {
             }
         }
         return headers;
+    }
+    /**
+     * The body actually sent upstream: the Anthropic body, translated to
+     * OpenAI Chat Completions for `api_format: openai_chat` providers.
+     */
+    buildUpstreamBody(request, modelConfig, stream) {
+        const body = this.buildRequestBody(request, modelConfig);
+        body.stream = stream;
+        return isOpenAIChat(modelConfig) ? (0, openai_chat_js_1.anthropicToOpenAIChat)(body) : body;
     }
     buildRequestBody(request, modelConfig) {
         const body = { ...request };
@@ -166,6 +181,9 @@ class ModelRouter {
         delete body.user_id;
     }
     buildUrl(modelConfig, endpoint = '/v1/messages') {
+        if (isOpenAIChat(modelConfig) && endpoint === '/v1/messages') {
+            return (0, openai_chat_js_1.openAIChatUrl)(modelConfig.base_url);
+        }
         const baseUrl = modelConfig.base_url.replace(/\/$/, '');
         const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
         return `${baseUrl}${normalizedEndpoint}`;
@@ -222,10 +240,8 @@ class ModelRouter {
     async attemptRequest(route, request, originalHeaders, signal) {
         this.validateCapabilities(route, request);
         const headers = this.buildHeaders(route, originalHeaders);
-        const body = this.buildRequestBody(request, route.config);
+        const body = this.buildUpstreamBody(request, route.config, false);
         const url = this.buildUrl(route.config);
-        // Ensure stream is false for non-streaming
-        body.stream = false;
         const timeout = this.configManager.getConfig().gateway.timeout * 1000;
         const controller = new AbortController();
         const unlinkAbort = linkAbortSignal(controller, signal);
@@ -244,7 +260,10 @@ class ModelRouter {
                     ? `${upstreamMessage} — key rejected. ${keyFixHint(route.name, route.config)}`
                     : upstreamMessage, response.status, 'api_error');
             }
-            return (await response.json());
+            const payload = await response.json();
+            return isOpenAIChat(route.config)
+                ? (0, openai_chat_js_1.openAIChatToAnthropic)(payload, route.config.model_id)
+                : payload;
         }
         catch (error) {
             if (error instanceof RouterError) {
@@ -271,6 +290,11 @@ class ModelRouter {
     }
     async forwardCountTokens(request, originalHeaders, signal) {
         const route = this.resolveRoute(request.model);
+        if (isOpenAIChat(route.config)) {
+            // Chat Completions has no token-counting endpoint; Claude Code falls
+            // back to its own estimate when this fails.
+            throw new RouterError(`Token counting is not available for OpenAI-compatible model '${route.name}'`, 404, 'not_found_error');
+        }
         this.validateCapabilities(route, { ...request, stream: false });
         const headers = this.buildHeaders(route, originalHeaders);
         const body = this.buildRequestBody(request, route.config);
@@ -340,7 +364,7 @@ class ModelRouter {
             let body;
             try {
                 this.validateCapabilities(route, request);
-                body = this.buildRequestBody(request, route.config);
+                body = this.buildUpstreamBody(request, route.config, true);
             }
             catch (error) {
                 const routerError = error instanceof RouterError
@@ -350,7 +374,6 @@ class ModelRouter {
                 return;
             }
             const url = this.buildUrl(route.config);
-            body.stream = true;
             headers.Accept = 'text/event-stream';
             const controller = new AbortController();
             const unlinkAbort = linkAbortSignal(controller, signal);
@@ -428,6 +451,11 @@ class ModelRouter {
             return;
         }
         const usage = { input: 0, output: 0 };
+        const translator = isOpenAIChat(route.config)
+            ? new openai_chat_stream_js_1.OpenAIChatStreamTranslator(route.config.model_id)
+            : null;
+        // Upstream event -> the Anthropic events forwarded to the client.
+        const toClient = (event, delimiter) => translator ? translator.push(event) : [event + delimiter];
         const decoder = new TextDecoder();
         let buffer = '';
         let usedByteDecoder = false;
@@ -457,9 +485,11 @@ class ModelRouter {
                     const event = buffer.slice(0, idx);
                     buffer = buffer.slice(idx + delimiter[0].length);
                     if (event.trim()) {
-                        eventCount++;
-                        this.accumulateStreamUsage(event, usage);
-                        yield event + delimiter[0];
+                        for (const out of toClient(event, delimiter[0])) {
+                            eventCount++;
+                            this.accumulateStreamUsage(out, usage);
+                            yield out;
+                        }
                     }
                 }
             }
@@ -467,10 +497,14 @@ class ModelRouter {
                 buffer += decoder.decode();
             }
             // Don't forget remaining data
-            if (buffer.trim()) {
+            const tail = buffer.trim() ? toClient(buffer, '\n\n') : [];
+            // An OpenAI stream that ends without [DONE] still needs message_stop.
+            if (translator)
+                tail.push(...translator.finish());
+            for (const out of tail) {
                 eventCount++;
-                this.accumulateStreamUsage(buffer, usage);
-                yield buffer + '\n\n';
+                this.accumulateStreamUsage(out, usage);
+                yield out;
             }
             this.usageTracker?.record(route.name, {
                 input_tokens: usage.input,
@@ -519,8 +553,10 @@ class ModelRouter {
                 usage.output = parsed.message.usage.output_tokens ?? usage.output;
             }
             else if (parsed.type === 'message_delta' && parsed.usage) {
-                // message_delta reports the cumulative output count
+                // message_delta reports the cumulative output count; translated
+                // OpenAI streams only learn input tokens here, at the very end.
                 usage.output = parsed.usage.output_tokens ?? usage.output;
+                usage.input = Math.max(usage.input, parsed.usage.input_tokens ?? 0);
             }
         }
         catch {

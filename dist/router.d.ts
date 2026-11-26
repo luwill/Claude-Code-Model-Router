@@ -23,6 +23,11 @@ export declare class ModelRouter {
      */
     buildChain(modelName: string): string[];
     buildHeaders(route: RouteInfo, originalHeaders: Record<string, string>): Record<string, string>;
+    /**
+     * The body actually sent upstream: the Anthropic body, translated to
+     * OpenAI Chat Completions for `api_format: openai_chat` providers.
+     */
+    buildUpstreamBody(request: MessagesRequest, modelConfig: ModelConfig, stream: boolean): Record<string, unknown>;
     buildRequestBody(request: MessagesRequest, modelConfig: ModelConfig): Record<string, unknown>;
     private validateCapabilities;
     private normalizeProviderRequestBody;
